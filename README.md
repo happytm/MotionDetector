@@ -3,6 +3,11 @@
 
 ## Based on excellent work by paoloinverse at: https://github.com/paoloinverse/bistatic_interference_radar_esp
 
+#### To play with the sensor:
+  - Simply copy motionDetector folder to your Arduino library folder and compile motionDetector.ino file in Arduino IDE.
+  - Connect to AP called "ESP" and point your browser to 192.168.4.1.
+  - Enter your WiFi settings first (ESP32 will reboot) and refresh the browser then enter motion sensor settings at the web interface.
+   
 Do you really need to connect your ESP32 SoC to external movement detector sensors such as infrared PIR, ultrasonic or dedicated radar sensors, when the ESP32 itself can work as a passive radar *without any additional hardware* ?
 
 
