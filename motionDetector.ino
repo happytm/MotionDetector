@@ -222,7 +222,7 @@ void startAsyncwebserver()
 }); 
   
       
-  //Followin line must be added before server.begin() to allow local lan request see : https://github.com/me-no-dev/ESPAsyncWebServer/issues/726
+  //Following line must be added before server.begin() to allow local lan request see : https://github.com/me-no-dev/ESPAsyncWebServer/issues/726
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
     webserver.begin();
 }
