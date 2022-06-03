@@ -1,16 +1,7 @@
 #include "motionDetector.h"
-
-
 #include <Arduino.h>  // only for diagnostic messages via Serial
-
-#include <WiFi.h>  // THIS WILL MAKE THE LIBRARY WORK ONLY IN STA MODE OR AP_STA MODE AS LONG AS YOU'RE CONNECTED AS A STATION, TO ANOTHER ACCESS POINT
-
-#include "esp_wifi.h"   // IF YOU HAVE AN ESP32, THIS WILL MAKE THE LIBRARY WORK IN MULTISTATIC MODE AND SOFT AP MODE AS LONG AS YOU'VE GOT AT LEAST ONE STATION CONNECTED TO YOUR SoftAP
-
-
-int debugRadarMsg = 3;
-
-
+#include <WiFi.h>  // THIS WILL MAKE THE LIBRARY WORK ONLY IN STA MODE OR AP_STA MODE AS LONG AS YOU'RE CONNECTED AS A STATION
+#include "esp_wifi.h"   //LIBRARY WORK IN MULTISTATIC MODE IF YOU'VE GOT AT LEAST ONE STATION CONNECTED TO YOUR ESP32's SoftAP.
 
 #define ENABLE_ALARM_THRESHOLD 0 // if 0, the raw variance signal is returned, if 1, only variance signals above threshold are returned, signals under threshold instead return zero or invalid (-1)
 
@@ -35,10 +26,6 @@ int * mobileAverageBuffer; // the instant average value fills this circular buff
 int mobileAverageBufferIndex = 0;
 int mobileAverageBufferValid = 0;
 
-
-
-
-
 int bufferIndex = 0; // index used for all buffers. 
 
 //// PLEASE NOTE: the init value is -1, meaning the variance is invalid, it will stay invalid until it can be effectively calculated
@@ -46,34 +33,20 @@ int bufferIndex = 0; // index used for all buffers.
 int variance = RADAR_BOOTING; // this value is calculated from the current sample and the average calculated from the mobileAverageBuffer values
 
 int variancePrev = 0;
-
 int varianceSample = 0; // deviation of the current sample from the average
-
 int varianceAR = 0;  // autoregressive version
-
 int varianceIntegral = 0; 
 
 #define MAX_VARIANCE 65535
 int varianceThreshold = 3; // in variance arbitrary units
-
 int varianceIntegratorLimitMax = MAX_SAMPLEBUFFERSIZE;
-
 int varianceIntegratorLimit = 3;
-
 int varianceBufferSize = MAX_SAMPLEBUFFERSIZE;
-
 int *varianceBuffer; // holds the variance values
-
 int detectionLevel = 0; // holds the detected level integrated from the varianceBuffer
-
 int varianceBufferIndex = 0;
 int varianceBufferValid = 0;
-
-
-
 int enableCSVout = 0;
-
-
 int minimumRSSI = MINIMUM_RSSI;
 
 
@@ -152,7 +125,6 @@ int motionDetector_deinit() {  // frees the storage arrays
 }
 
 
-
 int motionDetector_config(int sampleBufSize = 256, int mobileAvgSize = 64, int varThreshold = 3, int varIntegratorLimit = 3, bool enableAR = false) {
   if (sampleBufSize >= MAX_SAMPLEBUFFERSIZE) {
     sampleBufSize = MAX_SAMPLEBUFFERSIZE;
@@ -184,22 +156,15 @@ int motionDetector_config(int sampleBufSize = 256, int mobileAvgSize = 64, int v
 
 
 int motionDetector_process(int sample = 0) { // send the RSSI signal, returns the detection level ( < 0 -> error, == 0 -> no detection, > 0 -> detection level in variance arbitrary units)
-
+  
 
   if ((sampleBuffer == NULL) || (mobileAverageBuffer == NULL) || (varianceBuffer == NULL)) {
-    if (debugRadarMsg >= 1) {
-      Serial.println("motionDetector_process(): alarm: detected unallocated buffers: did you call motionDetector_init() to allocate the buffers?");
-    }
+ 
     return RADAR_UNINITIALIZED; // unallocated buffers
   }
 
   if (sample < minimumRSSI) {
-    if (debugRadarMsg >= 1) {
-      Serial.print("motionDetector_process(): alarm: signal too low: ");
-      Serial.print(sample);
-      Serial.print(" while minimum RSSI limit is: ");
-      Serial.println(minimumRSSI);
-    }
+ 
     return RADAR_RSSI_TOO_LOW;
   }
 
@@ -255,23 +220,6 @@ int motionDetector_process(int sample = 0) { // send the RSSI signal, returns th
     // applying the autoregressive part
     varianceAR = (varianceIntegral + varianceAR) / 2; // the effect of this filter is to "smooth" down the signal over time, so it's a simple IIR (infinite impulse response) low pass filter. It makes the system less sensitive to noisy signals, especially those with a deviation of less than 1.
 
-      // diagnostics section
-    if (debugRadarMsg >= 2) {
-      Serial.print("RSSI: "); 
-      Serial.print(sample);
-      Serial.print(", mobileAverage: "); 
-      Serial.print(mobileAverage);
-      Serial.print(", deviation: "); 
-      Serial.print(sample - mobileAverage);
-      Serial.print(", variance: "); 
-      Serial.print(varianceSample);
-      Serial.print(", varianceIntegral: "); 
-      Serial.print(varianceIntegral);
-      Serial.print(", varianceAR: "); 
-      Serial.println(varianceAR);
-
-    }
-    
     // assigning the values according to the settings
     variance = varianceSample; 
     
@@ -295,24 +243,17 @@ int motionDetector_process(int sample = 0) { // send the RSSI signal, returns th
   // final check to determine if the detected variance signal is above the detection threshold, this is only done if enableThreshold > 0 
   if ((variance >= varianceThreshold) && (enableThreshold > 0)) {
     detectionLevel = variance;
-    if (debugRadarMsg >= 1) {
-    	Serial.print("motionDetector_process(): detected variance signal above threshold: ");
-    	Serial.print(detectionLevel);
-    }
+  
     return detectionLevel;
   }
   // variance signal under threshold, but otherwise valid?
   if ((variance < varianceThreshold) && (variance >= 0) && (enableThreshold > 0) ) {
     detectionLevel = 0;
-    if (debugRadarMsg >= 2) {
-    	Serial.print("motionDetector_process(): variance signal under threshold: ");
-    	Serial.print(variance);
-    }
+ 
     return detectionLevel;
   }
   
   return variance; // if the sample buffer is still invalid at startup, an invalid value is returned: -1, else the raw variance signal is returned
-
 }
 
 
@@ -324,24 +265,13 @@ int motionDetector() { // request the RSSI level internally, then process the si
 
   int RSSIlevel = 0;
   int res = 0;
-
-  /*  // see, this gets commented because I suspect this only works with ESP32 or ESP8266 devices. ALSO, the wifi is supposed to be already initialized correctly and connected to an external AP
-  if (WiFi.getMode() & WIFI_MODE_NULL) {
-    if (debugRadarMsg >= 1) {
-      Serial.println("motionDetector(): detected WIFI_MODE_NULL: WIFI not configured: you should configure WIFI in advance and have a working connection before using the motionDetector library");
-    }
-    return WIFI_MODEINVALID;
-  }
-  */
-  
+ 
   RSSIlevel = (int)WiFi.RSSI();  // I know, this is lame, but will make this library work with most Arduino-supported devices
 
   // if the RSSI is zero, then we are most probably not connected to an upstream AP.
 
   if (RSSIlevel == 0) {
-    if (debugRadarMsg >= 1) {
-      Serial.println("motionDetector(): WIFI_MODE_STA: RSSI equal to zero detected: wifi connection lost: without a working STA connection the radar is inoperable");
-    }
+ 
     return RADAR_INOPERABLE; // radar inoperable
   }
   
@@ -350,9 +280,6 @@ int motionDetector() { // request the RSSI level internally, then process the si
   return res;
 
 }
-
-
-
 
 // bistatic version ESP32 ONLY
 
@@ -378,43 +305,12 @@ int bistatic_get_rssi_SoftAP_strongestClient() {
 
   uint8_t * currentBSSID;
   int currentRSSI = 0;
-
-
   wifi_sta_list_t stationList;
-
   esp_err_t scanRes = esp_wifi_ap_get_sta_list(&stationList);
 
   if (scanRes != ESP_OK) {
-    if (debugRadarMsg >= 1) {
-      Serial.print("bistatic_get_rssi_SoftAP_strongestClient(): scan failed: returning zero RSSI: see file esp_err.h for this error code: ");
-      Serial.println(scanRes);
-      /*
-       * 
-    Possible error codes: 
-    
-    ESP_OK: succeed; 0
-
-    ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init; 0x3001
-
-    ESP_ERR_INVALID_ARG: invalid argument; 0x102
-
-    ESP_ERR_WIFI_MODE: WiFi mode is wrong; 0x3005
-
-    ESP_ERR_WIFI_CONN: WiFi internal error, the station/soft-AP control block is invalid; 0x3007
-
-    https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/error-codes.html
-
-      */
-    }
     return 0; 
   }
-
-  if (debugRadarMsg >= 2) {
-    Serial.print("bistatic_get_rssi_SoftAP_strongestClient(): found clients: ");
-    Serial.println(stationList.num);
-  }
-
-
 
     // extracting the strongest signal (we need to mark it for subsequent scans, in order to build reliable stats) // this is executed one time when strongestClientfound == 0
   if (strongestClientfound == 0) {
@@ -424,20 +320,13 @@ int bistatic_get_rssi_SoftAP_strongestClient() {
       currentBSSID = station.mac;
       currentRSSI = station.rssi;
       
-      if (debugRadarMsg >= 3) {
-        Serial.print("bistatic_get_rssi_SoftAP_strongestClient(): processing client: ");
-        Serial.println(WiFi.SSID(netItem));     
-      }
       if ((currentRSSI > -100) || (currentRSSI < 0)) {
         if (currentRSSI > strongestClientRSSI) {
           strongestClientfound = 1;
           strongestClientRSSI = currentRSSI;
 
           memcpy ( strongestClientBSSID, currentBSSID, (sizeof(uint8_t) * 6));
-          if (debugRadarMsg >= 3) {
-            Serial.print("bistatic_get_rssi_SoftAP_strongestClient(): strongest client found with RSSI: ");
-            Serial.println(strongestClientRSSI);   
-          }
+
         }
       }
     }
@@ -459,10 +348,6 @@ int bistatic_get_rssi_SoftAP_strongestClient() {
       if (bssidScanOK == 1) {
         currentRSSI = station.rssi;
 
-        if (debugRadarMsg >= 3) {
-          Serial.print("bistatic_get_rssi_SoftAP_strongestClient(): strongest client found with RSSI: ");
-            Serial.println(currentRSSI);      
-        }
         rssi = currentRSSI; // preparing the final result
         break; // exit the scan loop
       }
@@ -491,14 +376,10 @@ int bistatic_get_rssi_SoftAP_strongestClient() {
   return rssi;
 }
 
-
 uint8_t strongestBSSID[6] = {0};
 int strongestRSSI = -100;
 int strongestChannel = 0;
 int strongestAPfound = 0; // if found set to 1
-
-
-
 
 int bistatic_get_rssi_ScanStrongestAP() {
   int rssi = 0;
@@ -514,11 +395,7 @@ int bistatic_get_rssi_ScanStrongestAP() {
   } else { // do a single channel active scan, this should be much faster
     scanRes = (int) WiFi.scanNetworks(false, false, false, 200, strongestChannel); //scanNetworks(bool async = false, bool show_hidden = false, bool passive = false, uint32_t max_ms_per_chan = 300, uint8_t channel = 0);
   }
-  if (debugRadarMsg >= 3) {
-    Serial.print("bistatic_get_rssi_ScanStrongestAP(): detected n. AP: ");
-    Serial.println(scanRes);
-  }
-
+ 
   // extracting the strongest signal (we need to mark it for subsequent scans, in order to build reliable stats) // this is executed one time when strongestAPfound == 0
   if (strongestAPfound == 0) {
     strongestRSSI = -100;
@@ -526,26 +403,14 @@ int bistatic_get_rssi_ScanStrongestAP() {
       currentBSSID = WiFi.BSSID(netItem);
       currentRSSI = WiFi.RSSI(netItem);
       currentChannel = WiFi.channel(netItem);
-      if (debugRadarMsg >= 3) {
-        Serial.print("bistatic_get_rssi_ScanStrongestAP(): processing AP: ");
-        Serial.print(WiFi.SSID(netItem));
-        Serial.print(" on channel: ");
-        Serial.print(currentChannel);
-        Serial.print(" with RSSI: ");
-        Serial.println(currentRSSI);
-      }
+
       if ((currentRSSI > -100) || (currentRSSI < 0)) {
         if (currentRSSI > strongestRSSI) {
           strongestAPfound = 1;
           strongestRSSI = currentRSSI;
           strongestChannel = currentChannel;
           memcpy ( strongestBSSID, currentBSSID, (sizeof(uint8_t) * 6));
-          if (debugRadarMsg >= 3) {
-            Serial.print("bistatic_get_rssi_ScanStrongestAP(): strongest AP found on channel: ");
-            Serial.print(strongestChannel);   
-            Serial.print(" with RSSI: ");
-            Serial.println(strongestRSSI);   
-          }
+
         }
       }
     }
@@ -566,12 +431,7 @@ int bistatic_get_rssi_ScanStrongestAP() {
       if (bssidScanOK == 1) {
         currentRSSI = WiFi.RSSI(netItem);
         currentChannel = WiFi.channel(netItem);
-        if (debugRadarMsg >= 3) {
-          Serial.print("bistatic_get_rssi_ScanStrongestAP(): strongest AP found on channel: ");
-          Serial.print(currentChannel); 
-          Serial.print(" with SSID: ");
-          Serial.println(WiFi.SSID(netItem));   
-        }
+
         rssi = currentRSSI; // preparing the final result
         break; // exit the scan loop
       }
@@ -624,9 +484,7 @@ int motionDetector_esp() { // request the RSSI level internally, then process th
   modeRes = (int) WiFi.getMode();
   
   if (modeRes & WIFI_MODE_NULL) {
-    if (debugRadarMsg >= 1) {
-      Serial.println("motionDetector_esp(): detected WIFI_MODE_NULL: WIFI not configured: you should configure WIFI in advance and have a working connection before using the motionDetector library");
-    }
+ 
     return WIFI_MODEINVALID;
   }
   if ((modeRes & WIFI_MODE_APSTA) || (modeRes & WIFI_MODE_STA)) {
@@ -636,106 +494,64 @@ int motionDetector_esp() { // request the RSSI level internally, then process th
 
   if (RSSIlevel == 0) {
 
-    if (debugRadarMsg >= 4) {
-      Serial.println("motionDetector_esp(): failed to get an RSSI with SCANMODE_STA: attempting to use other modes");
-    }
-    //if ((modeRes & WIFI_MODE_STA) && (!(modeRes & WIFI_MODE_APSTA))) { // STA only mode
-    
-
-
     if ((modeRes & WIFI_MODE_APSTA) || (modeRes & WIFI_MODE_AP)) { // also SoftAP available
       // we first check for any connected clients, then scan if zero clients have been found
-      if (debugRadarMsg >= 4) {
-        Serial.println("motionDetector_esp(): WIFI_MODE_AP or WIFI_MODE_APSTA detected: attempting to scan");
-      }
-      if (debugRadarMsg >= 6) {
-        Serial.print("motionDetector_esp(): WIFI_MODE: ");
-        Serial.print(modeRes);
-        Serial.print(",  SCANMODE: ");
-        Serial.println(scanMode);
-      }
+   
       if (scanMode == SCANMODE_SOFTAP) {
-        if (debugRadarMsg >= 6) {
-          Serial.println("Calling bistatic_get_rssi_SoftAP_strongestClient()");
-        }
+
         RSSIlevel = bistatic_get_rssi_SoftAP_strongestClient();
       }
 
       if (scanMode == SCANMODE_WIFIPROBE) {
-        if (debugRadarMsg >= 6) {
-          Serial.println("Calling bistatic_get_rssi_ScanStrongestAP()");
-        }
+
         RSSIlevel = bistatic_get_rssi_ScanStrongestAP();
       }
       
       if ((RSSIlevel == 0) && (scanMode == SCANMODE_SOFTAP)){ // SoftAP scan for connected clients failed, switching scan mode
-        if (debugRadarMsg >= 6) {
-          Serial.println("scan failed: setting scanMode = SCANMODE_WIFIPROBE");
-          Serial.println("Calling bistatic_get_rssi_ScanStrongestAP()");
-        }
+
         scanMode = SCANMODE_WIFIPROBE;
         RSSIlevel = bistatic_get_rssi_ScanStrongestAP();
       }
 
       if ((RSSIlevel == 0) && (scanMode == SCANMODE_WIFIPROBE)){ // WiFi probe scan for APs failed, switching scan mode
-        if (debugRadarMsg >= 6) {
-          Serial.println("interim check level alpha: scan failed: setting scanMode = SCANMODE_SOFTAP");
-          Serial.println("Calling bistatic_get_rssi_SoftAP_strongestClient()");
-        }
+
         scanMode = SCANMODE_SOFTAP;
         RSSIlevel = bistatic_get_rssi_SoftAP_strongestClient();
       }
 
       
       if (RSSIlevel == 0) { // also no APs around to be scanned
-        if (debugRadarMsg >= 6) {
-          Serial.println("interim check level beta: scan failed: setting scanMode = SCANMODE_SOFTAP");
-        }
+
         scanMode == SCANMODE_SOFTAP; // it is still worth reverting to the most efficient scan mode.
-        if (debugRadarMsg >= 1) {
-            Serial.println("motionDetector_esp(): all available scan methods failed: radar inoperable due to lack of connected clients and/or nearby access points: bistatic radars need at least one available external transmitter to operate correctly");
-        }
-        //return RADAR_INOPERABLE; // radar inoperable
+
       }
     }
 
     if (modeRes & WIFI_MODE_STA) { // STA only mode
-      if (debugRadarMsg >= 4) {
-        Serial.println("motionDetector_esp(): STA-only wifi mode detected: attempting to use SCANMODE_WIFIPROBE");
-      }
+
       scanMode = SCANMODE_WIFIPROBE;
       if (scanMode == SCANMODE_WIFIPROBE) {
         RSSIlevel = bistatic_get_rssi_ScanStrongestAP();
       }      
       if (RSSIlevel == 0) {
-        if (debugRadarMsg >= 1) {
-            Serial.println("motionDetector_esp(): WIFI_MODE_STA: RSSI equal to zero detected even with SCANMODE_WIFIPROBE: the radar is inoperable");
-        }
-        //return RADAR_INOPERABLE; // radar inoperable
+
       }
       
     }
 
 
     if (RSSIlevel == 0) { // also no APs around to be scanned
-        if (debugRadarMsg >= 6) {
-          Serial.println("final check: scan failed: setting scanMode = SCANMODE_SOFTAP");
-        }
+
         scanMode == SCANMODE_SOFTAP; // it is still worth reverting to the most efficient scan mode.
-        if (debugRadarMsg >= 1) {
-            Serial.println("motionDetector_esp(): all available scan methods failed: radar inoperable due to lack of connected clients and/or nearby access points: bistatic radars need at least one available external transmitter to operate correctly");
-        }
+
         return RADAR_INOPERABLE; // radar inoperable
       }
-
-    
-  }
+}
   
   res = motionDetector_process(RSSIlevel); // the core operation won't change. 
 
-
   if (enableCSVout) {
-    //Serial.println("VarianceLevel");
+    Serial.println("VarianceLevel");
     serialPrintBSSID(BSSIDinUse);
     Serial.print("_");
     Serial.println(RSSIlevel);
@@ -744,115 +560,4 @@ int motionDetector_esp() { // request the RSSI level internally, then process th
   
   return res;
 
-}
-
-
-
-int motionDetector_debug_via_serial(int debugLevel) {
-
- int debugSave = debugRadarMsg;
- debugRadarMsg = debugLevel;
- if (debugRadarMsg >= 1) {
-  Serial.print("motionDetector_debug_via_serial(): debugging functions (if the current wifi mode allows it):");
-  Serial.println(motionDetector_esp());
-  int modeRes = (int) WiFi.getMode();
-  
-  if (modeRes & WIFI_MODE_NULL) {
-    Serial.print("motionDetector_debug_via_serial(): WIFI_MODE_NULL detected: can do nothing useful");
-    return 0;
-  }
-
-  Serial.print("motionDetector_esp() output:");
-  Serial.println(motionDetector_esp());
-
-  if ((modeRes & WIFI_MODE_APSTA) || (modeRes & WIFI_MODE_STA)) {
-    Serial.print("bistatic_get_rssi_ScanStrongestAP() output:");
-    Serial.println(bistatic_get_rssi_ScanStrongestAP());
-  }
-  if ((modeRes & WIFI_MODE_APSTA) || (modeRes & WIFI_MODE_AP)) {
-    Serial.print("bistatic_get_rssi_SoftAP_strongestClient() output:");
-    Serial.println(bistatic_get_rssi_SoftAP_strongestClient());
-  }
-  
- }
-
- debugRadarMsg = debugSave; // restore the normal debug level
-
- return debugRadarMsg;
- 
-}
-
-
-int motionDetector_set_debug_level(int debugLevel) {
-  debugRadarMsg = debugLevel;
-  return debugRadarMsg;
-}
-
-
-
-int motionDetector_enable_serial_CSV_graph_data(int serialCSVen = 0) {
-
-  if (serialCSVen >= 0) {
-    enableCSVout = serialCSVen;
-  }
-  if (serialCSVen > 0) {
-    motionDetector_set_debug_level(0);
-  }
-  
-  return serialCSVen;
-  
-}
-
-
-
-
-int motionDetector_set_minimum_RSSI(int rssiMin) {
-
-  if ((rssiMin > 0) || (rssiMin < ABSOLUTE_RSSI_LIMIT)) {
-    rssiMin == ABSOLUTE_RSSI_LIMIT; // which results in disabling the minimum RSSI check
-  }
-
-  
-
-
-    if (debugRadarMsg >= 2) {
-      Serial.print("motionDetector_set_minimum_RSSI(): minimumRSSI: ");
-      Serial.println(minimumRSSI);
-    }
-    minimumRSSI = rssiMin;
-    if (debugRadarMsg >= 1) {
-      Serial.print("motionDetector_set_minimum_RSSI(): set minimumRSSI to: ");
-      Serial.println(minimumRSSI);
-    }
-
-  
-  return rssiMin;
-}
-
-
-// current status: IMPLEMENTED
-int motionDetector_enable_alarm(int thresholdEnable) {
-  if (thresholdEnable < 0) {
-    thresholdEnable = 0; // which results in disabling the alarm
-  }
-
-  
-  enableThreshold = thresholdEnable; // Lol!
-  
-  return enableThreshold;
-  
-}
-
-
-// current status: IMPLEMENTED
-int motionDetector_set_alarm_threshold(int alarmThreshold) {
-    if (alarmThreshold < 0) {
-    alarmThreshold = 0; // which results in always enabling the alarm
-  }
-
-  
-
-  varianceThreshold = alarmThreshold;
-  
-  return alarmThreshold;
 }
