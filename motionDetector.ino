@@ -5,7 +5,8 @@
 #include <EEPROM.h>
 #include "time.h"
 #include <TinyMqtt.h>       // Thanks to https://github.com/hsaturn/TinyMqtt
-#include "motionDetector.h" // Thanks to: https://github.com/paoloinverse/motionDetector_esp
+#include "motionDetector.h" // Thanks to https://github.com/paoloinverse/motionDetector_esp
+#include <ESP32Ping.h>      // Thanks to https://github.com/marian-craciunescu/ESP32Ping
 
 int index_html_gz_len = 5850;
 const uint8_t index_html_gz[] = {
@@ -23,10 +24,12 @@ struct tm timeinfo;
 char* room = "Livingroom";  // Needed for person locator.Each location must run probeReceiver sketch to implement person locator.
 int rssiThreshold = -50;    // Adjust according to signal strength by trial & error.
 
-uint8_t Person1[3] = {0x36, 0x33, 0x33}; // First and last 2 bytes of Mac ID of Cell phone #1.
-uint8_t Person2[3] = {0x36, 0x33, 0x33}; // First and last 2 bytes of Mac ID of Cell phone #2.
-uint8_t Person3[3] = {0x36, 0x33, 0x33}; // First and last 2 bytes of Mac ID of Cell phone #3.
-uint8_t Person4[3] = {0x36, 0x33, 0x33}; // First and last 2 bytes of Mac ID of Cell phone #4.
+IPAddress deviceIP(192, 168, 0, 2); // Fixed IP address assigned to family member's devices to be checked for their presence at home.
+
+uint8_t device1ID[3] = {0xD0, 0xC0, 0x8A};   // First and last 2 bytes of Mac ID of Cell phone #1.
+uint8_t device2ID[3] = {0x36, 0x33, 0x33};   // First and last 2 bytes of Mac ID of Cell phone #2.
+uint8_t device3ID[3] = {0x36, 0x33, 0x33};   // First and last 2 bytes of Mac ID of Cell phone #3.
+uint8_t device4ID[3] = {0x36, 0x33, 0x33};   // First and last 2 bytes of Mac ID of Cell phone #4.
 
 const char* apSSID = "ESP";
 const char* apPassword = "";
@@ -42,8 +45,6 @@ String ssid,password;
 uint8_t receivedCommand[6],showConfig[20];
 const char* ntpServer = "pool.ntp.org";
 unsigned long epoch; 
-
-uint8_t devices[6][6]; // Format = {0x36, 0x33, 0x33, 0x33, 0x33, 0x33}; // Mac ID of Cell phone #1.
 
 MqttBroker broker(1883);
 MqttClient myClient(&broker);
@@ -133,31 +134,56 @@ void loop()
   {      // Implementation of non blocking delay function.
    Serial.print("Motion sensor scan interval: ");Serial.println(EEPROM.readByte(1) * 10);
    time_now += (EEPROM.readByte(1) * 10);
-   
-   Serial.print("Motion sensor Status: "); Serial.println(EEPROM.readByte(0));
-   if (EEPROM.readByte(0) == 1) // Only process following code if motion sensor Enabled.
-    {
-     Serial.print("Motion sensor minimum RSSI value set to: ");Serial.println(EEPROM.readByte(3) * -1); // motionDetector_set_minimum_RSSI(EEPROM.readByte(5) * -1); // Minimum RSSI value to be considered reliable. Default value is 80 * -1 = -80. 
-     notifyClients(String(motionLevel));
+         
+      if (EEPROM.readByte(0) == 1) // Only process following code if motion sensor Enabled.
+       {
+         Serial.print("Motion sensor Status: "); Serial.println("Enabled");
+         Serial.print("Motion sensor minimum RSSI value set to: ");Serial.println(EEPROM.readByte(3) * -1); //motionDetector_set_minimum_RSSI = (EEPROM.readByte(5) * -1); // Minimum RSSI value to be considered reliable. Default value is 80 * -1 = -80. 
+    
+         notifyClients(String(motionLevel));
      
-     unsigned long lastDetected;      // Epoch time at which last motion level detected above trigger threshold.
+         unsigned long lastDetected;      // Epoch time at which last motion level detected above trigger threshold.
      
      //Serial.print("Motion sensor Threshold set to: ");Serial.println(EEPROM.readByte(4));
-     if (motionLevel > EEPROM.readByte(2))
+     if (motionLevel > EEPROM.readByte(2)) // If motion detected.
       {
        lastDetected = getTime();
-      // lastLevel = motionLevel;
-      }
+       // If motion detected, check any family member is at home.
+       
+       Serial.println("Pinging IP addresses.... ");
+        
+         deviceIP[3] = 2;
+         Serial.println("Pinging IP address 2... ");
+         if(Ping.ping(deviceIP)) { // If ping is successful.
+         Serial.println("Person2 is at Home");} else { Serial.println("Person2 is Away");
+         }
+         deviceIP[3] = 3;
+         Serial.println("Pinging IP address 3... ");
+         if(Ping.ping(deviceIP)) {
+         Serial.println("Person3 is at Home");} else { Serial.println("Person3 is Away"); 
+         }
+         deviceIP[3] = 4;
+         Serial.println("Pinging IP address 4... ");
+         if(Ping.ping(deviceIP)) {
+         Serial.println("Person4 is at Home");} else { Serial.println("Person4 is Away"); 
+         }
+         deviceIP[3] = 5;
+         Serial.println("Pinging IP address 5... ");
+         if(Ping.ping(deviceIP)) {
+         Serial.println("Person5 is at Home");} else { Serial.println("Person5 is Away"); 
+         }
+         
+     }
        notifyClients(String(lastDetected));
        ws.cleanupClients();
-   
+ 
+    } else { Serial.print("Motion sensor Status: "); Serial.println("Disabled");}
+       motionLevel = 0;  // Reset motionLevel to 0 to resume motion tracking.
        motionLevel = motionDetector_esp();  // if the connection fails, the radar will automatically try to switch to different operating modes by using ESP32 specific calls. 
        Serial.print("Motion Level: ");
        Serial.println(motionLevel);
-    } 
-  }
+  }  
        if (WiFi.waitForConnectResult() != WL_CONNECTED) {ssid = EEPROM.readString(270); password = EEPROM.readString(301);Serial.println("Wifi connection failed");Serial.print("Connect to Access Point ");Serial.print(apSSID);Serial.println(" and point your browser to 192.168.4.1 to set SSID and password" );WiFi.disconnect(false);delay(1000);WiFi.begin(ssid.c_str(), password.c_str());}
-      
 }  // End of loop
 
 
@@ -167,7 +193,7 @@ void probeRequest(WiFiEvent_t event, WiFiEventInfo_t info)
   Serial.print("Probe Received :  ");for (int i = 0; i < 6; i++) {Serial.printf("%02X", info.ap_probereqrecved.mac[i]);if (i < 5)Serial.print(":");}Serial.println();
   Serial.print("Connect at IP: ");Serial.print(WiFi.localIP()); Serial.print(" or 192.168.4.1 with connection to ESP AP");Serial.println(" to monitor and control whole network");
 
-  if (info.ap_probereqrecved.mac[0] == Person1[0] && info.ap_probereqrecved.mac[4] == Person1[1] && info.ap_probereqrecved.mac[5] == Person1[2]) 
+  if (info.ap_probereqrecved.mac[0] == device1ID[0] && info.ap_probereqrecved.mac[4] == device1ID[1] && info.ap_probereqrecved.mac[5] == device1ID[2]) 
   { // write code to match MAC ID of cell phone to predefined variable and store presence/absense in new variable.
     
     Serial.println("################ Person 1 arrived ###################### ");
@@ -180,10 +206,9 @@ void probeRequest(WiFiEvent_t event, WiFiEventInfo_t info)
      { // write code to match MAC ID of cell phone to predefined variable and store presence/absense in new variable.
        myClient.publish("Sensordata/Person1/in/", room);
      }
-  } else { Serial.println("################ Person 1 is not Home ###################### "); myClient.publish("Sensordata/Person1/", "Away");}
-    
-  
-} // End of Proberequest function.
+              
+    }
+ } // End of Proberequest function.
 
 
 void startWiFi()
@@ -195,6 +220,7 @@ void startWiFi()
   Serial.print("AP started with name: ");Serial.println(apSSID);
   
   ssid = EEPROM.readString(21); password = EEPROM.readString(51);
+ 
   WiFi.begin(ssid.c_str(), password.c_str());
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
     Serial.println("Wifi connection failed");
@@ -204,6 +230,7 @@ void startWiFi()
     WiFi.begin(ssid.c_str(), password.c_str());
  }
     Serial.print("Connect at IP: ");Serial.print(WiFi.localIP()); Serial.print(" or 192.168.4.1");Serial.println(" to monitor and control whole network");
+
 }
 
 
