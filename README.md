@@ -2,6 +2,7 @@
 # Motion sensor fully based on the ESP32.
 
 ## Based on excellent work by paoloinverse at: https://github.com/paoloinverse/bistatic_interference_radar_esp
+- His library was modified to remove serial debug & serial parameter setting via serial to replace with settings via web interface.
 
 #### To play with the sensor:
   - Simply copy motionDetector folder to your Arduino library folder and compile motionDetector.ino file in Arduino IDE.
