@@ -1,6 +1,5 @@
 #include "motionDetector.h"
-#include <Arduino.h>  // only for diagnostic messages via Serial
-#include <WiFi.h>  // THIS WILL MAKE THE LIBRARY WORK ONLY IN STA MODE OR AP_STA MODE AS LONG AS YOU'RE CONNECTED AS A STATION
+#include <WiFi.h>       // THIS WILL MAKE THE LIBRARY WORK ONLY IN STA MODE OR AP_STA MODE AS LONG AS YOU'RE CONNECTED AS A STATION
 #include "esp_wifi.h"   //LIBRARY WORK IN MULTISTATIC MODE IF YOU'VE GOT AT LEAST ONE STATION CONNECTED TO YOUR ESP32's SoftAP.
 
 #define ENABLE_ALARM_THRESHOLD 0 // if 0, the raw variance signal is returned, if 1, only variance signals above threshold are returned, signals under threshold instead return zero or invalid (-1)
