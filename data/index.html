@@ -1,0 +1,346 @@
+<html> 
+<head> 
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"> 
+<title>Motion Sensor, Proberequest, TinyMQTT, Websockets, Asyncwebserver, LittleFS Editor & uPlot</title> 
+
+<link rel="stylesheet" href="uPlot.min.css">
+
+<style>
+body {margin: 0;}
+.u-legend.u-inline .u-value {width: 150px;text-align: left;}
+		
+#container { width: 100%; height: 49vh; background-color: #333; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 7px; touch-action: none; } 
+#item { width: 100px; height: 100px; background-color: rgb(245, 230, 99); border: 10px solid rgba(136, 136, 136, .5); border-radius: 50%; touch-action: none; user-select: none; } 
+#item:active { background-color: rgba(168, 218, 220, 1.00); } 
+#item:hover { cursor: pointer; border-width: 20px; } 
+#area { position: fixed; right: 33.33%; top: 50vh; } 
+#stream-container{ height: 49vh; padding:0; margin:0; margin-block-start:0; margin-block-end:0; margin-inline-start:0; margin-inline-end:0 } 
+#stream-container img{ display:block; max-width:100%; min-height:49vh; border-radius:4px; margin-top:8px } 
+</style> 
+
+</head> 
+
+<body>
+<script type="text/javascript" src="uPlot.iife.min.js"></script>
+
+<h2>Motion sensor (no hardware sensor required)</h2>
+<h4>Send Command to ESP32 for WiFi & motion sensor settings</h4>
+
+<form id="formElem">
+  
+<input name="enable" type="text" placeholder="Enable = 1 or Disable = 0"/>
+<input name="scaninterval" type="text" placeholder="Scan Interval*10(30 to 100)"/>
+<input name="threshold" type="text" placeholder="Detection Threshold"/>
+<input name="rssi" type="text" placeholder="Minimum RSSI(default = 80)"/>
+<button type="submit">Set Motion sensor settings</button>
+
+<br><br>
+
+<input name="SSID" type="text" placeholder="SSID"/>
+<input name="Password" type="password" placeholder="Password"/>
+<button type="submit">Enter WiFi Config</button>
+<br><br>
+
+</form>
+
+<script>
+  formElem.onsubmit = async (e) => {
+    e.preventDefault();
+
+    let response = await fetch('/post', {
+      method: 'POST',
+      body: new FormData(formElem)
+    });
+    console.log(formElem);
+    let result = await response.json();
+
+    alert(result.message);
+  };
+</script>
+<p>Father :   <a id="father">Unknown</a>
+<p>Mother :   <a id="mother">Unknown</a>
+<p>Son :      <a id="son">Unknown</a>
+<p>Daughter : <a id="daughter">Unknown</a>
+<p>Current Motion Level: <span id="motion-level">Sensor calibrating...</span></p>
+<p>Last motion detected at: <span id="time">Waiting for motion detection...</span></p>
+<p>Last Motion Level was: <span id="last-motion-level">Waiting for motion detection...</span></p>
+
+<script>
+var gateway = `ws://${window.location.hostname}/ws`;
+var websocket;
+
+window.addEventListener('load', onLoad);
+
+function onLoad(event) {
+    initWebSocket();
+    
+}
+
+function initWebSocket() {
+    console.log('Trying to open a WebSocket connection...');
+    websocket = new WebSocket(gateway);
+    websocket.onopen    = onOpen;
+    websocket.onclose   = onClose;
+    websocket.onmessage = onMessage;
+}
+
+function onOpen(event) {
+    console.log('Connection opened');
+}
+
+function onClose(event) {
+    console.log('Connection closed');
+    setTimeout(initWebSocket, 2000);
+}
+
+function onMessage(event) {
+    let data = JSON.parse(event.data);
+    console.log(data);
+    
+    if (data < 1000) {document.getElementById("motion-level").innerHTML = data}
+    
+    if (data > 1000) { 
+        var utcSeconds = data; var d = new Date(0); // The 0 there is the key, which sets the date to the epoch
+        d.setUTCSeconds(utcSeconds);
+        document.getElementById("time").innerHTML = d
+        } 
+      
+    if (data > 100 && data < 1000){document.getElementById("last-motion-level").innerHTML = data}
+    if (data == 2020){ document.getElementById("father").innerHTML = "Home"}
+    if (data == 2000){ document.getElementById("father").innerHTML = "Away"}
+    
+    if (data == 3030){ document.getElementById("mother").innerHTML = "Home"}
+    if (data == 3000){ document.getElementById("mother").innerHTML = "Away"}
+
+    if (data == 4040){ document.getElementById("son").innerHTML = "Home"}
+    if (data == 4000){ document.getElementById("son").innerHTML = "Away"}
+
+    if (data == 5050){ document.getElementById("daughter").innerHTML = "Home"}
+    if (data == 5000){ document.getElementById("daughter").innerHTML = "Away"}
+
+
+
+}
+
+function initButton() {
+    document.getElementById('toggle').addEventListener('click', onToggle);
+}
+
+function onToggle(event) {
+    websocket.send(JSON.stringify({'action':'toggle'}));
+}
+</script>
+
+
+<script>
+
+var title = "Software Motion Sensor";
+var fatherStatus,	motherStatus, sonStatus, daughterStatus;
+// converts the legend into a simple tooltip
+function legendAsTooltipPlugin({ className, style = { backgroundColor:"rgba(255, 249, 196, 0.92)", color: "black" } } = {}) {
+				let legendEl;
+
+				function init(u, opts) {
+					legendEl = u.root.querySelector(".u-legend");
+
+					legendEl.classList.remove("u-inline");
+					className && legendEl.classList.add(className);
+
+					uPlot.assign(legendEl.style, {
+						textAlign: "left",
+						pointerEvents: "",
+						display: "none",
+						position: "absolute",
+						left: 0,
+						top: 0,
+						zIndex: 100,
+						boxShadow: "2px 2px 10px rgba(0,0,0,0.5)",
+						...style
+					});
+
+					// hide series color markers
+					const idents = legendEl.querySelectorAll(".u-marker");
+
+					for (let i = 0; i < idents.length; i++)
+						idents[i].style.display = "";
+
+					const overEl = u.root.querySelector(".u-over");
+					overEl.style.overflow = "visible";
+
+					// move legend into plot bounds
+					overEl.appendChild(legendEl);
+
+					// show/hide tooltip on enter/exit
+					overEl.addEventListener("mouseenter", () => {legendEl.style.display = null;});
+					overEl.addEventListener("mouseleave", () => {legendEl.style.display = "none";});
+
+					// let tooltip exit plot
+			//	overEl.style.overflow = "visible";
+				}
+
+				function update(u) {
+					const { left, top } = u.cursor;
+					legendEl.style.transform = "translate(" + left + "px, " + top + "px)";
+				}
+
+				return {
+					hooks: {
+						init: init,
+						setCursor: update,
+					}
+				};
+			}
+   
+			function prepData(packed) {
+				console.time("prep");
+
+				// epoch,location,voltage,rssi,temperature,humidity,pressure,light
+
+				const numFields = packed[0];
+                console.log(numFields); //7
+				packed = packed.slice(numFields + 1);
+                console.log(packed);   //single array of all sensor data.
+                
+        
+				let data = [
+					Array(packed.length/numFields), // Time
+					Array(packed.length/numFields), // Motion Level
+          Array(packed.length/numFields), // RSSI Level
+					Array(packed.length/numFields), // Father's Presence
+					Array(packed.length/numFields), // Mother's Presence
+					Array(packed.length/numFields), // Son's Presence
+          Array(packed.length/numFields), // Daughter's Presence
+					
+				];
+				
+			  console.log(data); // (7)arrays of values by field
+        
+				for (let i = 0, j = 0; i < packed.length; i += numFields, j++) {
+				  
+					data[0][j] = packed[i+0];     // Time
+				  data[1][j] = packed[i+1];     // Motion Level
+					data[2][j] = packed[i+2];     // RSSI Level
+					data[3][j] = packed[i+3];     // Father's Presence
+					if (data[3][j] > 0) {fatherStatus = " Home";} else {fatherStatus = " Away or phone sleeping";}
+					data[4][j] = packed[i+4];     // Mother's Presence
+					if (data[4][j] > 0) {motherStatus = " Home";} else {motherStatus = " Away or phone sleeping";}
+					data[5][j] = packed[i+5];     // Son's Presence
+					if (data[5][j] > 0) {sonStatus = " Home";} else {sonStatus = " Away or phone sleeping";}
+					data[6][j] = packed[i+6];     // Daughter's Presence
+					if (data[6][j] > 0) {daughterStatus = " Home";} else {daughterStatus = " Away or phone sleeping";}
+
+			}
+
+		    
+				console.timeEnd("prep");
+
+				return data;
+				
+			}
+
+
+			function makeChart(data) {
+				console.time("chart");
+				
+		const opts = {
+					title: title,
+					
+					width: 480,
+					height:400,
+				//	ms:     1,
+				//	cursor: {
+				//		x: false,
+				//		y: false,
+				//	},
+					series: [
+						{},
+					
+						{
+							label: "Motion Level",
+							scale: "Left",
+							value: (u, v) => v == null ? "-" : v.toFixed(1) + " ",
+							stroke: "teal",
+							width: 1/devicePixelRatio,
+						},
+						{
+							label: "RSSI Level",
+							scale: "Left",
+							value: (u, v) => v == null ? "-" : v.toFixed(1) + " ",
+							stroke: "green",
+							width: 1/devicePixelRatio,
+						},
+						{
+							label: "Father's Presence",
+							scale: "Right",
+							value: (u, v) => v == null ? "-" : v.toFixed(2) + fatherStatus,
+							stroke: "maroon",
+							width: 1/devicePixelRatio,
+						},
+						
+						{
+							label: "Mother's Presence",
+							scale: "right",
+							value: (u, v) => v == null ? "-" : v.toFixed(1) + motherStatus,
+							stroke: "lime",
+							width: 1/devicePixelRatio,
+						},
+						
+						{
+							label: "Son's Presence",
+							scale: "right",
+							value: (u, v) => v == null ? "-" : v.toFixed(1) + sonStatus,
+							stroke: "olive",
+							width: 1/devicePixelRatio,
+						},
+						
+						{
+							label: "Daughter's Presence",
+							scale: "Right",
+							value: (u, v) => v == null ? "-" : v.toFixed(2) + daughterStatus,
+							stroke: "blue",
+							width: 1/devicePixelRatio,
+						}
+
+	  		],
+					
+					plugins: [
+					
+					legendAsTooltipPlugin()
+					
+				],
+					
+					axes: [
+						{},
+						
+						{
+							scale: "Left",
+							values: (u, vals, space) => vals.map(v => +v.toFixed(1) + " "),
+						},
+						{
+							side: 1,
+							scale: "Right",
+							size: 60,
+							values: (u, vals, space) => vals.map(v => +v.toFixed(2) + ""),
+							grid: {show: false},
+						},
+					],
+				};
+              
+				let uplot = new uPlot(opts, data, document.body);
+        
+				Promise.resolve().then(() => {
+					
+					console.timeEnd("chart");
+				});
+			}
+
+			fetch("data.json").then(r => r.json()).then(packed => {
+				
+				let data = prepData(packed);
+				setTimeout(() => makeChart(data), 0);
+			});
+</script>
+
+</body>
+</html>   
