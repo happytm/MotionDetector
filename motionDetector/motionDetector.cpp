@@ -1,5 +1,6 @@
 #include "motionDetector.h"
-#include <WiFi.h>       // THIS WILL MAKE THE LIBRARY WORK ONLY IN STA MODE OR AP_STA MODE AS LONG AS YOU'RE CONNECTED AS A STATION
+#include <Arduino.h>  // only for diagnostic messages via Serial
+#include <WiFi.h>  // THIS WILL MAKE THE LIBRARY WORK ONLY IN STA MODE OR AP_STA MODE AS LONG AS YOU'RE CONNECTED AS A STATION
 #include "esp_wifi.h"   //LIBRARY WORK IN MULTISTATIC MODE IF YOU'VE GOT AT LEAST ONE STATION CONNECTED TO YOUR ESP32's SoftAP.
 
 #define ENABLE_ALARM_THRESHOLD 0 // if 0, the raw variance signal is returned, if 1, only variance signals above threshold are returned, signals under threshold instead return zero or invalid (-1)
@@ -559,4 +560,55 @@ int motionDetector_esp() { // request the RSSI level internally, then process th
   
   return res;
 
+}
+
+int motionDetector_enable_serial_CSV_graph_data(int serialCSVen = 0) {
+
+  if (serialCSVen >= 0) {
+    enableCSVout = serialCSVen;
+  }
+  if (serialCSVen > 0) {
+    //motionDetector_set_debug_level(0);
+  }
+  
+  return serialCSVen;
+  
+}
+
+int motionDetector_set_minimum_RSSI(int rssiMin) {
+
+  if ((rssiMin > 0) || (rssiMin < ABSOLUTE_RSSI_LIMIT)) {
+    rssiMin == ABSOLUTE_RSSI_LIMIT; // which results in disabling the minimum RSSI check
+  }
+    
+    minimumRSSI = rssiMin;
+    return rssiMin;
+}
+
+
+// current status: IMPLEMENTED
+int motionDetector_enable_alarm(int thresholdEnable) {
+  if (thresholdEnable < 0) {
+    thresholdEnable = 0; // which results in disabling the alarm
+  }
+
+  
+  enableThreshold = thresholdEnable; // Lol!
+  
+  return enableThreshold;
+  
+}
+
+
+// current status: IMPLEMENTED
+int motionDetector_set_alarm_threshold(int alarmThreshold) {
+    if (alarmThreshold < 0) {
+    alarmThreshold = 0; // which results in always enabling the alarm
+  }
+
+  
+
+  varianceThreshold = alarmThreshold;
+  
+  return alarmThreshold;
 }
