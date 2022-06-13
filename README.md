@@ -5,7 +5,7 @@
 - His library was modified to remove serial debug & serial parameter setting via serial to replace with settings via web interface.
 
 #### TODO: https://neuton.ai/news/projects/75-tabular-data-vs-computer-vision-detecting-room-occupancy.html
-           - bhttps://github.com/happytm/arduino-room-occupancy
+           - https://github.com/happytm/arduino-room-occupancy
            
 #### To play with the sensor:
   - Simply copy motionDetector folder to your Arduino library folder and compile motionDetector.ino file in Arduino IDE.
