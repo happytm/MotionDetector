@@ -6,7 +6,7 @@
 #include <AsyncTCP.h>
 #include <EEPROM.h>
 #include <FS.h>
-#include "LITTLEFS.h"
+#include "SPIFFS.h"
 #include <SPIFFSEditor.h>
 #include "time.h"
 #include <TinyMqtt.h>       // Thanks to https://github.com/hsaturn/TinyMqtt
@@ -49,8 +49,8 @@ uint8_t receivedCommand[6],showConfig[20];
 const char* ntpServer = "pool.ntp.org";
 unsigned long time_now, epoch, lastDetected;      // Epoch time at which last motion level detected above trigger threshold.
 
-#define MYFS LITTLEFS
-#define FORMAT_LITTLEFS_IF_FAILED true
+#define MYFS SPIFFS
+#define FORMAT_SPIFFS_IF_FAILED true
 
 MqttBroker broker(1883);
 MqttClient myClient(&broker);
@@ -100,7 +100,7 @@ unsigned long getTime() {time_t now;if (!getLocalTime(&timeinfo)) {Serial.printl
 void setup(){
   Serial.begin(115200);
   delay(500);
-  LITTLEFS.begin();
+  SPIFFS.begin();
   EEPROM.begin(512);
 
 #if FIRSTTIME       
@@ -174,7 +174,7 @@ void loop()
          
          graphData = ",";graphData += lastDetected;graphData += ",";graphData += motionLevel;graphData += ",";graphData += RSSIlevel;graphData += ",";graphData += fatherPing;graphData += ",";graphData += motherPing;graphData += ",";graphData += sonPing;graphData += ",";graphData += daughterPing;graphData += "]";
      
-         File f = LITTLEFS.open(dataFile, "r+"); Serial.print("File size: "); Serial.println(f.size());  // See https://github.com/lorol/LITTLEFS/issues/33
+         File f = SPIFFS.open(dataFile, "r+"); Serial.print("File size: "); Serial.println(f.size());  // See https://github.com/lorol/LITTLEFS/issues/33
          f.seek((f.size()-1), SeekSet);Serial.print("Position: "); Serial.println(f.position());
          f.print(graphData);Serial.println();Serial.print("Appended to file: "); Serial.println(graphData);Serial.print("File size: "); Serial.println(f.size());
          f.close(); 
