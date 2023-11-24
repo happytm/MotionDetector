@@ -20,90 +20,71 @@
 	
 <script type="text/javascript">
 
-output = document.getElementById("output");
-output = document.getElementById("output_maps");
+    output = document.getElementById("output");
+    output = document.getElementById("output_maps");
 
 function calculate() {
 // Map initialization 
-    var map = L.map('map').setView([43.397093, -72.6964828], 20);
+    var map = L.map('map').setView([43.397093, -72.6964828], 30);
     
     //osm layer
-    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    });
+      //  var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      //    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      //});
+	
+	var osm = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
+    maxZoom: 18,
+    subdomains:['mt0','mt1','mt2','mt3']
+   });
+	
+	
     osm.addTo(map);
 
-            setInterval(() => {
+      setInterval(() => {
 		
-		lats = [        // Hard coded anchor latitudes.
-		43.39705,   // NW
-		43.39652,   // NE
-		43.39696    // SW
-		
-	];
-	longs = [       // Hard coded anchor longitudes.
-		-72.69594,  // NW
-		-72.69616,  // NE
-		-72.69407   // SW
-		
-	];
-	dists = [     // DISTANCE IN METERS. Replace with live data from anchors.
-        // Returns a random integer from 0 to 100:
-        Math.floor(Math.random() * 51),
-		Math.floor(Math.random() * 51),
-		Math.floor(Math.random() * 51)
-		
-	];
+		lats = [43.39705, 43.39652, 43.39696];       // Hard coded anchor latitudes.
+        longs = [-72.69594, -72.69616,  -72.69407];  // Hard coded anchor longitudes.     
+	    dists = [Math.floor(Math.random() * 51), Math.floor(Math.random() * 51), Math.floor(Math.random() * 51)]; // DISTANCE IN METERS. Replace with live data from anchors.
 	
-	console.log("Raw distances:      "+ dists[0] +","+ dists[1] +","+ dists[2])
+	    console.log("Raw distances:      "+ dists[0] +","+ dists[1] +","+ dists[2])
 	
-	// See https://www.wouterbulten.nl/posts/lightweight-javascript-library-for-noise-filtering/ for details.
-	f = new KalmanFilter({R: 0.01, Q: 4, A: 1.1, B: 2, C: 2});
+	    // See https://www.wouterbulten.nl/posts/lightweight-javascript-library-for-noise-filtering/ for details.
+	    f = new KalmanFilter({R: 0.01, Q: 4, A: 1.1, B: 2, C: 2});
 	    
-		dists[0] = f.filter(dists[0], 1);   
-        dists[1] = f.filter(dists[1], 1);	
-	    dists[2] = f.filter(dists[2], 1);  // 1 for moving target data and 0 for constant data. 
+		dists[0] = f.filter(dists[0], 1); dists[1] = f.filter(dists[1], 1);	dists[2] = f.filter(dists[2], 1);  // 1 for moving target data and 0 for constant data. 
 	
-	console.log("Filtered distances: "+ Math.round(dists[0]) +","+ Math.round(dists[1]) +","+ Math.round(dists[2]))	
+	    console.log("Filtered distances: "+ Math.round(dists[0]) +","+ Math.round(dists[1]) +","+ Math.round(dists[2]))	
 	
+	    var beacons = [new Beacon(lats[0], longs[0], dists[0]), new Beacon(lats[1], longs[1], dists[1]), new Beacon(lats[2], longs[2], dists[2])];
 	
-	var beacons = [
-		new Beacon(lats[0], longs[0], dists[0]),
-		new Beacon(lats[1], longs[1], dists[1]),
-		new Beacon(lats[2], longs[2], dists[2]),
+   	    var point = trilaterate(beacons)
+	    output.innerText = point[0] + "," + point[1];
+	    output_maps.innerText = point[0] + "," + point[1];
+	    output_maps.href = "https://www.google.at/maps/@" + point[0] + "," + point[1] + ",16z";
 		
-	];
-	
-	var point = trilaterate(beacons)
-	output.innerText = point[0] + "," + point[1];
-	output_maps.innerText = point[0] + "," + point[1];
-	output_maps.href = "https://www.google.at/maps/@" + point[0] + "," + point[1] + ",16z";
-		
-	var marker;
-	var lat = point[0]
+	    var marker;
+	    var lat = point[0]
         var long = point[1]
      
         marker = L.marker([lat, long])
         var featureGroup = L.featureGroup([marker]).addTo(map)
-        .bindPopup('My MAC ID is ------!')
-        .openPopup();
+       .bindPopup('My MAC ID is ------!')
+       .openPopup();
         
-	map.fitBounds(featureGroup.getBounds())
+	    map.fitBounds(featureGroup.getBounds())
 
         console.log("Coordinates: Lat: "+ lat +" Long: "+ long)
-        }, 5000);
+      }, 5000);
 
-        setInterval(() => {         // Reload page at fixed interval to remove stale markers. 
-		  location.reload()  
-		}, 100000);
-        }
+      setInterval(() => {         // Reload page at fixed interval to remove stale markers. 
+		location.reload()  
+	  }, 100000);
+    }
 </script>
 
 <script>
 // Created by Derrick Cohodas (dav-)
 // Based on the Python example by StackExchange user wwnick from http://gis.stackexchange.com/a/415/41129 
-
-
 // Requires the Mathjs library - http://mathjs.org/
 //var math = require('mathjs')
 
@@ -113,12 +94,11 @@ function calculate() {
  * @param {Number} lon  Longitude
  * @param {Number} dist Distance from [lat, lon] to some point in kilometers
  */
-var Beacon = function(lat, lon, dist) {
-  this.lat  = lat
-  this.lon  = lon
-  this.dist = dist
-
-  return this
+  Beacon = function(lat, lon, dist) {
+    this.lat  = lat 
+    this.lon  = lon 
+    this.dist = dist 
+    return this
 }
 
 /**
@@ -128,56 +108,23 @@ var Beacon = function(lat, lon, dist) {
  * @param  {Array} beacons Array of 3 Beacon objects
  * @return {Array}         Array of the format [latitude, longitude]
  */
-var trilaterate = function(beacons) {
-
-  // #assuming elevation = 0   
-  var earthR = 6371000
-    , rad = function(deg) {
-      return deg * (math.pi/180)
-    }
-    , deg = function(rad) {
-      return rad * (180/math.pi)
-    }
+  var trilaterate = function(beacons) {var earthR = 6371000, rad = function(deg) {return deg * (math.pi/180)}, deg = function(rad) {return rad * (180/math.pi)}
 
   // #using authalic sphere
   // #if using an ellipsoid this step is slightly different
   // #Convert geodetic Lat/Long to ECEF xyz
   // #   1. Convert Lat/Long to radians
   // #   2. Convert Lat/Long(radians) to ECEF
-  var P1 = [ earthR *(math.cos(rad(beacons[0].lat)) * math.cos(rad(beacons[0].lon)))
-           , earthR *(math.cos(rad(beacons[0].lat)) * math.sin(rad(beacons[0].lon)))
-           , earthR *(math.sin(rad(beacons[0].lat)))
-           ]
-
-  var P2 = [ earthR *(math.cos(rad(beacons[1].lat)) * math.cos(rad(beacons[1].lon)))
-           , earthR *(math.cos(rad(beacons[1].lat)) * math.sin(rad(beacons[1].lon)))
-           , earthR *(math.sin(rad(beacons[1].lat)))
-           ]
-
-  var P3 = [ earthR *(math.cos(rad(beacons[2].lat)) * math.cos(rad(beacons[2].lon)))
-           , earthR *(math.cos(rad(beacons[2].lat)) * math.sin(rad(beacons[2].lon)))
-           , earthR *(math.sin(rad(beacons[2].lat)))
-           ]
+  var P1 = [ earthR *(math.cos(rad(beacons[0].lat)) * math.cos(rad(beacons[0].lon))), earthR *(math.cos(rad(beacons[0].lat)) * math.sin(rad(beacons[0].lon))), earthR *(math.sin(rad(beacons[0].lat)))]
+  var P2 = [ earthR *(math.cos(rad(beacons[1].lat)) * math.cos(rad(beacons[1].lon))), earthR *(math.cos(rad(beacons[1].lat)) * math.sin(rad(beacons[1].lon))), earthR *(math.sin(rad(beacons[1].lat)))]
+  var P3 = [ earthR *(math.cos(rad(beacons[2].lat)) * math.cos(rad(beacons[2].lon))), earthR *(math.cos(rad(beacons[2].lat)) * math.sin(rad(beacons[2].lon))), earthR *(math.sin(rad(beacons[2].lat)))]
 
   // #from wikipedia
   // #transform to get circle 1 at origin
   // #transform to get circle 2 on x axis
   var ex = math.divide(math.subtract(P2, P1), math.norm( math.subtract(P2, P1) ))
-  var i =  math.dot(ex, math.subtract(P3, P1) )
-
-  var ey = math.divide(
-          math.subtract(
-            math.subtract(P3, P1),
-            math.multiply(i, ex)
-          ),
-          math.norm(
-            math.subtract(
-              math.subtract(P3, P1),
-              math.multiply(i, ex)
-            )
-          )
-       )
-
+  var i =  math.dot(ex, math.subtract(P3, P1))
+  var ey = math.divide(math.subtract(math.subtract(P3, P1), math.multiply(i, ex)), math.norm(math.subtract(math.subtract(P3, P1), math.multiply(i, ex))))
   var ez = math.cross(ex, ey)
   var d =  math.norm(math.subtract(P2, P1))
   var j =  math.dot(ey, math.subtract(P3, P1))
@@ -194,15 +141,7 @@ var trilaterate = function(beacons) {
   var z = math.sqrt( math.abs(math.pow(beacons[0].dist, 2) - math.pow(x, 2) - math.pow(y, 2)) )
 
   // #triPt is an array with ECEF x,y,z of trilateration point
-  var triPt = math.add(
-            math.add(
-              math.add(P1,
-                math.multiply(x, ex)
-              ),
-              math.multiply(y, ey)
-            ),
-            math.multiply(z, ez)
-          )
+  var triPt = math.add(math.add(math.add(P1, math.multiply(x, ex)), math.multiply(y, ey)), math.multiply(z, ez))
 
   // #convert back to lat/long from ECEF
   // #convert to degrees
@@ -216,43 +155,14 @@ var trilaterate = function(beacons) {
 /*
 var gateway = `ws://${window.location.hostname}/ws`;
 var websocket;
-
 window.addEventListener('load', onLoad);
-
-function onLoad(event) {
-    initWebSocket();
-    
-}
-
-function initWebSocket() {
-    console.log('Trying to open a WebSocket connection...');
-    websocket = new WebSocket(gateway);
-    websocket.onopen    = onOpen;
-    websocket.onclose   = onClose;
-    websocket.onmessage = onMessage;
-}
-
-function onOpen(event) {
-    console.log('Connection opened');
-}
-
-function onClose(event) {
-    console.log('Connection closed');
-    setTimeout(initWebSocket, 2000);
-}
-
-function onMessage(event) {
-    let data = JSON.parse(event.data);
-    console.log(data);
-}
-
-function initButton() {
-    document.getElementById('toggle').addEventListener('click', onToggle);
-}
-
-function onToggle(event) {
-    websocket.send(JSON.stringify({'action':'toggle'}));
-}
+function onLoad(event) {initWebSocket();}
+function initWebSocket() {console.log('Trying to open a WebSocket connection...'); websocket = new WebSocket(gateway); websocket.onopen    = onOpen; websocket.onclose   = onClose;websocket.onmessage = onMessage;}
+function onOpen(event) {console.log('Connection opened');}
+function onClose(event) {console.log('Connection closed'); setTimeout(initWebSocket, 2000);}
+function onMessage(event) {let data = JSON.parse(event.data); console.log(data);}
+function initButton() {document.getElementById('toggle').addEventListener('click', onToggle);}
+function onToggle(event) {websocket.send(JSON.stringify({'action':'toggle'}));}
 */
 </script>
 
@@ -262,4 +172,3 @@ var KalmanFilter=function(){"use strict";function s(t,i){for(var e=0;e<i.length;
 </script>   
 
 </body>
-</html>
