@@ -72,6 +72,8 @@ function calculate() {
        .openPopup();
         
 	    map.fitBounds(featureGroup.getBounds())
+		
+}
 
         console.log("Coordinates: Lat: "+ lat +" Long: "+ long)
       }, 5000);
@@ -103,7 +105,7 @@ function calculate() {
 
 /**
  * Perform a trilateration calculation to determine a location
- * based on 3 beacons and their respective distances (in kilometers) to the desired point.
+ * based on 3 beacons and their respective distances (in meters) to the desired point.
  *
  * @param  {Array} beacons Array of 3 Beacon objects
  * @return {Array}         Array of the format [latitude, longitude]
