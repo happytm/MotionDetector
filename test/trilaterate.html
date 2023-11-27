@@ -76,13 +76,7 @@ function calculate() {
 // Created by Derrick Cohodas (dav-)
 // Based on the Python example by StackExchange user wwnick from http://gis.stackexchange.com/a/415/41129 
 
-  Beacon = function(lat, lon, dist) {
-    this.lat  = lat 
-    this.lon  = lon 
-    this.dist = dist 
-    return this
-}
-
+  Beacon = function(lat, lon, dist) {this.lat  = lat, this.lon  = lon, this.dist = dist; return this}
   var trilaterate = function(beacons) {var earthR = 6371000, rad = function(deg) {return deg * (math.pi/180)}, deg = function(rad) {return rad * (180/math.pi)}
   var P1 = [ earthR *(math.cos(rad(beacons[0].lat)) * math.cos(rad(beacons[0].lon))), earthR *(math.cos(rad(beacons[0].lat)) * math.sin(rad(beacons[0].lon))), earthR *(math.sin(rad(beacons[0].lat)))]
   var P2 = [ earthR *(math.cos(rad(beacons[1].lat)) * math.cos(rad(beacons[1].lon))), earthR *(math.cos(rad(beacons[1].lat)) * math.sin(rad(beacons[1].lon))), earthR *(math.sin(rad(beacons[1].lat)))]
