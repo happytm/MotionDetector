@@ -15,7 +15,7 @@
 <body onload="calculate();">
 	<label> Position coordinates based on simulated beacon data from 3 anchors (MINIMUM 3 REQUIRED FOR TRILATERATION):<pre id="output"></pre></label>
 	<label> Link to Google Maps:<a id="output_maps" href=""></a></label>
-    <div id="map"></div>
+        <div id="map"></div>
 	
 <script type="text/javascript">
 
@@ -35,43 +35,40 @@ function calculate() {
       setInterval(() => {
 		
 		lats = [43.39705, 43.39652, 43.39696];       // Hard coded anchor latitudes.
-        longs = [-72.69594, -72.69616,  -72.69407];  // Hard coded anchor longitudes.     
-	    dists = [Math.floor(Math.random() * 500), Math.floor(Math.random() * 500), Math.floor(Math.random() * 500)]; // DISTANCE IN METERS. Replace with live data from anchors.
-	
-	    console.log("Raw distances:      "+ dists[0] +","+ dists[1] +","+ dists[2])
+                longs = [-72.69594, -72.69616,  -72.69407];  // Hard coded anchor longitudes.     
+	        dists = [Math.floor(Math.random() * 500), Math.floor(Math.random() * 500), Math.floor(Math.random() * 500)]; // DISTANCE IN METERS. Replace with live data from anchors.
+	        console.log("Raw distances:      "+ dists[0] +","+ dists[1] +","+ dists[2])
 	
 	   	// See https://www.wouterbulten.nl/posts/lightweight-javascript-library-for-noise-filtering/ for details.
-	    f = new KalmanFilter({R: 0.01, Q: 4, A: 1.1, B: 2, C: 2});
+	        f = new KalmanFilter({R: 0.01, Q: 4, A: 1.1, B: 2, C: 2});
 
+	        dists[0] = f.filter(dists[0], 1); dists[1] = f.filter(dists[1], 1);	dists[2] = f.filter(dists[2], 1);  // 1 for moving target data and 0 for constant data. 
+	
+	        console.log("Filtered distances: "+ Math.floor(Math.random() * 501) +","+ Math.floor(Math.random() * 501) +","+ Math.round(dists[2]))	
+	
+	        var beacons = [new Beacon(lats[0], longs[0], dists[0]), new Beacon(lats[1], longs[1], dists[1]), new Beacon(lats[2], longs[2], dists[2])];
+	        var point = trilaterate(beacons)
 	    
-		dists[0] = f.filter(dists[0], 1); dists[1] = f.filter(dists[1], 1);	dists[2] = f.filter(dists[2], 1);  // 1 for moving target data and 0 for constant data. 
-	
-	    console.log("Filtered distances: "+ Math.floor(Math.random() * 501) +","+ Math.floor(Math.random() * 501) +","+ Math.round(dists[2]))	
-	
-	    var beacons = [new Beacon(lats[0], longs[0], dists[0]), new Beacon(lats[1], longs[1], dists[1]), new Beacon(lats[2], longs[2], dists[2])];
-	
-   	    var point = trilaterate(beacons)
-	    output.innerText = point[0] + "," + point[1];
-	    output_maps.innerText = point[0] + "," + point[1];
-	    output_maps.href = "https://www.google.at/maps/@" + point[0] + "," + point[1] + ",16z";
+	        output.innerText = point[0] + "," + point[1];
+	        output_maps.innerText = point[0] + "," + point[1];
+	        output_maps.href = "https://www.google.at/maps/@" + point[0] + "," + point[1] + ",16z";
 		
-	    var marker;
-	    var lat = point[0]
-        var long = point[1]
+	        var marker;
+	        var lat = point[0]
+                var long = point[1]
      
-        marker = L.marker([lat, long])
-        var featureGroup = L.featureGroup([marker]).addTo(map)
-       .bindPopup('My MAC ID is ------!')
-       .openPopup();
+                marker = L.marker([lat, long])
+                var featureGroup = L.featureGroup([marker]).addTo(map)
+                .bindPopup('I am new device ------!')
+                .openPopup();
         
-	    map.fitBounds(featureGroup.getBounds())
-		
-        console.log("Coordinates: Lat: "+ lat +" Long: "+ long)
+	         map.fitBounds(featureGroup.getBounds())
+	         console.log("Coordinates: Lat: "+ lat +" Long: "+ long)
       }, 5000);
 
       setInterval(() => {         // Reload page at fixed interval to remove stale markers. 
 		location.reload()  
-	  }, 1000000);
+      }, 1000000);
     }
 </script>
 
