@@ -13,70 +13,78 @@
 </head>
 
 <body onload="calculate();">
-	<label> Position coordinates based on simulated beacon data from 3 anchors (MINIMUM 3 REQUIRED FOR TRILATERATION):<pre id="output"></pre></label>
+	<label> Position coordinates based on simulated beacon data from 3 anchors (Trilateration method):<pre id="output"></pre></label>
 	<label> Link to Google Maps:<a id="output_maps" href=""></a></label>
-        <div id="map"></div>
+    <div id="map"></div>
 	
 <script type="text/javascript">
 
     output = document.getElementById("output");
     output = document.getElementById("output_maps");
 
-function calculate() {
+  function calculate() {
 
-    var map = L.map('map').setView([43.397093, -72.6964828], 16);
-   	var osm = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
-    maxZoom: 16,
-    subdomains:['mt0','mt1','mt2','mt3']
-    });
+    lats = [43.39705, 43.39652, 43.39696];        // Hard coded anchor latitudes.
+    longs = [-72.69594, -72.69616,  -72.69407];   // Hard coded anchor longitudes.
+    
+	var map = L.map('map').setView([43.397093, -72.6964828], 18);
+   	var osm = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3']}); osm.addTo(map);
+	var polygon = L.polygon([[lats[0], longs[0]],[lats[1], longs[1]],[lats[2], longs[2]]], {color: 'red',fillColor: '#f03',fillOpacity: 0.1}).addTo(map) 
+	 	
+
+	var imageUrl = 'floorplan.png',
+    imageBounds = [[43.39705, -72.69594], [43.39652, -72.69616]];
+    L.imageOverlay(imageUrl, imageBounds).addTo(map);
 	
-      osm.addTo(map);
-
-      setInterval(() => {
+	  setInterval(() => {
 		
-		lats = [43.39705, 43.39652, 43.39696];       // Hard coded anchor latitudes.
-                longs = [-72.69594, -72.69616,  -72.69407];  // Hard coded anchor longitudes.     
-	        dists = [Math.floor(Math.random() * 500), Math.floor(Math.random() * 500), Math.floor(Math.random() * 500)]; // DISTANCE IN METERS. Replace with live data from anchors.
-	        console.log("Raw distances:      "+ dists[0] +","+ dists[1] +","+ dists[2])
+   	    dists = [Math.floor(Math.random() * 200), Math.floor(Math.random() * 200), Math.floor(Math.random() * 200)]; // DISTANCE IN METERS. Replace with live data from anchors.
+	    //var circle1 = L.circle([lats[0], longs[0]], {color: 'red', fillColor: '#f03', fillOpacity: 0.1, radius: dists[0]}).addTo(map)
+		//var circle2 = L.circle([lats[1], longs[1]], {color: 'blue', fillColor: '#f05', fillOpacity: 0.1, radius: dists[1]}).addTo(map);
+	  	//var circle3 = L.circle([lats[2], longs[2]], {color: 'yellow', fillColor: '#f08', fillOpacity: 0.1, radius: dists[2]}).addTo(map);
+	
+		console.log("Raw distances:      "+ dists[0] +","+ dists[1] +","+ dists[2])
 	
 	   	// See https://www.wouterbulten.nl/posts/lightweight-javascript-library-for-noise-filtering/ for details.
-	        f = new KalmanFilter({R: 0.01, Q: 4, A: 1.1, B: 2, C: 2});
+	    f = new KalmanFilter({R: 0.01, Q: 4, A: 1.1, B: 2, C: 2});
 
-	        dists[0] = f.filter(dists[0], 1); dists[1] = f.filter(dists[1], 1);	dists[2] = f.filter(dists[2], 1);  // 1 for moving target data and 0 for constant data. 
-	
-	        console.log("Filtered distances: "+ Math.floor(Math.random() * 501) +","+ Math.floor(Math.random() * 501) +","+ Math.round(dists[2]))	
-	
-	        var beacons = [new Beacon(lats[0], longs[0], dists[0]), new Beacon(lats[1], longs[1], dists[1]), new Beacon(lats[2], longs[2], dists[2])];
-	        var point = trilaterate(beacons)
 	    
-	        output.innerText = point[0] + "," + point[1];
-	        output_maps.innerText = point[0] + "," + point[1];
-	        output_maps.href = "https://www.google.at/maps/@" + point[0] + "," + point[1] + ",16z";
+		dists[0] = f.filter(dists[0], 1); dists[1] = f.filter(dists[1], 1);	dists[2] = f.filter(dists[2], 1);  // 1 for moving target data and 0 for constant data. 
+	
+	    console.log("Filtered distances: "+ Math.floor(dists[0]) +","+ Math.floor(dists[1]) +","+ Math.round(dists[2]))	
+	    
+	    var beacons = [new Beacon(lats[0], longs[0], dists[0]), new Beacon(lats[1], longs[1], dists[1]), new Beacon(lats[2], longs[2], dists[2])];
+	   // var beacons = [new Beacon(lats[0], longs[0], 20), new Beacon(lats[1], longs[1], 20), new Beacon(lats[2], longs[2], 20)];
+   	    var point = trilaterate(beacons)
+	  
+		output.innerText = point[0] + "," + point[1]; output_maps.innerText = point[0] + "," + point[1]; output_maps.href = "https://www.google.at/maps/@" + point[0] + "," + point[1] + ",16z";
 		
-	        var marker;
-	        var lat = point[0]
-                var long = point[1]
+	    var marker;
+	    var lat = point[0]
+        var long = point[1]
      
-                marker = L.marker([lat, long])
-                var featureGroup = L.featureGroup([marker]).addTo(map)
-                .bindPopup('I am new device ------!')
-                .openPopup();
+        marker = L.marker([lat, long])
+        var featureGroup = L.featureGroup([marker]).addTo(map)
+       .bindPopup('My MAC ID is ------!  ' +  Math.floor(dists[0]) + ',' +  Math.floor(dists[1]) +',' +  Math.floor(dists[2]))
+       .openPopup();
         
-	         map.fitBounds(featureGroup.getBounds())
-	         console.log("Coordinates: Lat: "+ lat +" Long: "+ long)
-      }, 5000);
-
+	    map.fitBounds(featureGroup.getBounds())
+		
+        console.log("Coordinates: Lat: "+ lat +" Long: "+ long)	
+		}, 10000);
+	  
+	   
+      
       setInterval(() => {         // Reload page at fixed interval to remove stale markers. 
 		location.reload()  
-      }, 1000000);
+	  }, 1000000);
     }
-</script>
 
-<script>
 // Created by Derrick Cohodas (dav-)
 // Based on the Python example by StackExchange user wwnick from http://gis.stackexchange.com/a/415/41129 
 
   Beacon = function(lat, lon, dist) {this.lat  = lat, this.lon  = lon, this.dist = dist; return this}
+
   var trilaterate = function(beacons) {var earthR = 6371000, rad = function(deg) {return deg * (math.pi/180)}, deg = function(rad) {return rad * (180/math.pi)}
   var P1 = [ earthR *(math.cos(rad(beacons[0].lat)) * math.cos(rad(beacons[0].lon))), earthR *(math.cos(rad(beacons[0].lat)) * math.sin(rad(beacons[0].lon))), earthR *(math.sin(rad(beacons[0].lat)))]
   var P2 = [ earthR *(math.cos(rad(beacons[1].lat)) * math.cos(rad(beacons[1].lon))), earthR *(math.cos(rad(beacons[1].lat)) * math.sin(rad(beacons[1].lon))), earthR *(math.sin(rad(beacons[1].lat)))]
@@ -95,9 +103,7 @@ function calculate() {
   var lon = deg(math.atan2(triPt[1], triPt[0]))
   return [lat, lon]
 }
-</script>
 
-<script>
 /*
 var gateway = `ws://${window.location.hostname}/ws`;
 var websocket;
@@ -110,9 +116,7 @@ function onMessage(event) {let data = JSON.parse(event.data); console.log(data);
 function initButton() {document.getElementById('toggle').addEventListener('click', onToggle);}
 function onToggle(event) {websocket.send(JSON.stringify({'action':'toggle'}));}
 */
-</script>
 
-<script>
 /*kalmanjs, Wouter Bulten, MIT, https://github.com/wouterbulten/kalmanjs */
 var KalmanFilter=function(){"use strict";function s(t,i){for(var e=0;e<i.length;e++){var s=i[e];s.enumerable=s.enumerable||!1,s.configurable=!0,"value"in s&&(s.writable=!0),Object.defineProperty(t,s.key,s)}}return function(){function v(){var t=0<arguments.length&&void 0!==arguments[0]?arguments[0]:{},i=t.R,e=void 0===i?1:i,s=t.Q,n=void 0===s?1:s,r=t.A,h=void 0===r?1:r,a=t.B,o=void 0===a?0:a,u=t.C,c=void 0===u?1:u;!function(t,i){if(!(t instanceof i))throw new TypeError("Cannot call a class as a function")}(this,v),this.R=e,this.Q=n,this.A=h,this.C=c,this.B=o,this.cov=NaN,this.x=NaN}var t,i,e;return t=v,(i=[{key:"filter",value:function(t){var i=1<arguments.length&&void 0!==arguments[1]?arguments[1]:0;if(isNaN(this.x))this.x=1/this.C*t,this.cov=1/this.C*this.Q*(1/this.C);else{var e=this.predict(i),s=this.uncertainty(),n=s*this.C*(1/(this.C*s*this.C+this.Q));this.x=e+n*(t-this.C*e),this.cov=s-n*this.C*s}return this.x}},{key:"predict",value:function(){var t=0<arguments.length&&void 0!==arguments[0]?arguments[0]:0;return this.A*this.x+this.B*t}},{key:"uncertainty",value:function(){return this.A*this.cov*this.A+this.R}},{key:"lastMeasurement",value:function(){return this.x}},{key:"setMeasurementNoise",value:function(t){this.Q=t}},{key:"setProcessNoise",value:function(t){this.R=t}}])&&s(t.prototype,i),e&&s(t,e),v}()}();
 </script>   
