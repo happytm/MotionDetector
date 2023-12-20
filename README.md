@@ -4,7 +4,9 @@
 #### Based on excellent work by paoloinverse at: https://github.com/paoloinverse/bistatic_interference_radar_esp
 - His library was modified to remove serial debug & serial parameter setting via serial to replace with settings via web interface.
 
-#### TODO: https://neuton.ai/news/projects/75-tabular-data-vs-computer-vision-detecting-room-occupancy.html
+#### Similar projects: 
+https://web.ece.ucsb.edu/~ymostofi/papers/Mobisys21_KoranyMostofi.pdf
+https://neuton.ai/news/projects/75-tabular-data-vs-computer-vision-detecting-room-occupancy.html
            - https://github.com/happytm/arduino-room-occupancy
            
 #### To play with the sensor:
