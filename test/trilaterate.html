@@ -19,24 +19,27 @@
 	
 <script type="text/javascript">
 
-    output = document.getElementById("output");
-    output = document.getElementById("output_maps");
+  output = document.getElementById("output");
+  output = document.getElementById("output_maps");
 
   function calculate() {
-
-    lats = [43.39705, 43.39652, 43.39696];        // Hard coded anchor latitudes.
-    longs = [-72.69594, -72.69616,  -72.69407];   // Hard coded anchor longitudes.
+    var gateway = [43.397093, -72.6964828, 18]        // Soft access point location. Last variable is zoom level for map tile.
+	var anchor1 = [43.39705, -72.69594]               // Anchor 1 location.
+	var anchor2 = [43.39652, -72.69616]               // Anchor 2 location.
+	var anchor3 = [43.39696, -72.69407]               // Anchor 3 location.
     
-	var map = L.map('map').setView([43.397093, -72.6964828], 18);
+	var map = L.map('map').setView([gateway[0], gateway[1]], gateway[2]);
    	var osm = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3']}); osm.addTo(map);
-	var polygon = L.polygon([[lats[0], longs[0]],[lats[1], longs[1]],[lats[2], longs[2]]], {color: 'red',fillColor: '#f03',fillOpacity: 0.1}).addTo(map) 
+	var polygon = L.polygon([[anchor1[0], anchor1[1]],[anchor2[0], anchor2[1]],[anchor3[0], anchor3[1]]], {color: 'red',fillColor: '#f03',fillOpacity: 0.1}).addTo(map) 
 	 	
 
-	var imageUrl = 'floorplan.png',
-    imageBounds = [[43.39705, -72.69594], [43.39652, -72.69616]];
-    L.imageOverlay(imageUrl, imageBounds).addTo(map);
+	var imageUrl = 'floorplan.png',               
+    imageBounds = [[anchor1[0], anchor1[1]], [anchor2[0], anchor2[1]]];       // location of top right corner of image, Location of bottom left of image.
+    L.imageOverlay(imageUrl, imageBounds).addTo(map);                         // Add scalable floorplan to map.
 	
-	  setInterval(() => {
+    var lastLatLong = [gateway[0], gateway[1]];  
+
+	setInterval(() => {
 		
    	    dists = [Math.floor(Math.random() * 200), Math.floor(Math.random() * 200), Math.floor(Math.random() * 200)]; // DISTANCE IN METERS. Replace with live data from anchors.
 	    //var circle1 = L.circle([lats[0], longs[0]], {color: 'red', fillColor: '#f03', fillOpacity: 0.1, radius: dists[0]}).addTo(map)
@@ -53,32 +56,34 @@
 	
 	    console.log("Filtered distances: "+ Math.floor(dists[0]) +","+ Math.floor(dists[1]) +","+ Math.round(dists[2]))	
 	    
-	    var beacons = [new Beacon(lats[0], longs[0], dists[0]), new Beacon(lats[1], longs[1], dists[1]), new Beacon(lats[2], longs[2], dists[2])];
-	   // var beacons = [new Beacon(lats[0], longs[0], 20), new Beacon(lats[1], longs[1], 20), new Beacon(lats[2], longs[2], 20)];
+	    var beacons = [new Beacon(anchor1[0], anchor1[1], dists[0]), new Beacon(anchor2[0], anchor2[1], dists[1]), new Beacon(anchor3[0], anchor3[1], dists[2])];
+	   
    	    var point = trilaterate(beacons)
 	  
 		output.innerText = point[0] + "," + point[1]; output_maps.innerText = point[0] + "," + point[1]; output_maps.href = "https://www.google.at/maps/@" + point[0] + "," + point[1] + ",16z";
+	    
+		var marker;
+	    var lat = point[0]  
+	    var long = point[1] 
 		
-	    var marker;
-	    var lat = point[0]
-        var long = point[1]
-     
-        marker = L.marker([lat, long])
-        var featureGroup = L.featureGroup([marker]).addTo(map)
-       .bindPopup('My MAC ID is ------!  ' +  Math.floor(dists[0]) + ',' +  Math.floor(dists[1]) +',' +  Math.floor(dists[2]))
-       .openPopup();
-        
-	    map.fitBounds(featureGroup.getBounds())
+		marker = L.marker([lat, long])
+        var featureGroup = L.featureGroup([marker]).addTo(map).bindPopup('My MAC ID is ------!  ' +  Math.floor(dists[0]) + ',' +  Math.floor(dists[1]) +',' +  Math.floor(dists[2])).openPopup();
+        map.fitBounds(featureGroup.getBounds())
 		
-        console.log("Coordinates: Lat: "+ lat +" Long: "+ long)	
+		var path = L.polyline([[lat, long], [lastLatLong[0], lastLatLong[1]]]).addTo(map)
+		path.addLatLng([lat, long]);
+		lastLatLong = [lat, long]
+        console.log("Coordinates: Lat: "+ lat +" Long: "+ long)
+        console.log("Last Coordinates: Last Lat: "+ lastLatLong[0] +" Last Long: "+ lastLatLong[1])
+
 		}, 10000);
 	  
-	   
-      
-      setInterval(() => {         // Reload page at fixed interval to remove stale markers. 
+	setInterval(() => {         // Reload page at fixed interval to remove stale markers. 
 		location.reload()  
 	  }, 1000000);
     }
+	
+	
 
 // Created by Derrick Cohodas (dav-)
 // Based on the Python example by StackExchange user wwnick from http://gis.stackexchange.com/a/415/41129 
