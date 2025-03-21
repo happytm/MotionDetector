@@ -124,7 +124,8 @@ void setup(){
   myClient.subscribe(receivedTopic);
   myClient.subscribe(sentTopic);        
   
-  WiFi.onEvent(probeRequest, SYSTEM_EVENT_AP_PROBEREQRECVED); Serial.print("Waiting for probe requests ... ");
+  WiFi.onEvent(probeRequest, ARDUINO_EVENT_WIFI_AP_PROBEREQRECVED); Serial.print("Waiting for probe requests ... ");
+
 
 } // End of setup
 
@@ -195,19 +196,19 @@ void loop()
 void probeRequest(WiFiEvent_t event, WiFiEventInfo_t info) 
 { 
   Serial.println();
-  Serial.print("Probe Received :  ");for (int i = 0; i < 6; i++) {Serial.printf("%02X", info.ap_probereqrecved.mac[i]);if (i < 5)Serial.print(":");}Serial.println();
+  Serial.print("Probe Received :  ");for (int i = 0; i < 6; i++) {Serial.printf("%02X", info.wifi_ap_probereqrecved.mac[i]);if (i < 5)Serial.print(":");}Serial.println();
   Serial.print("Connect at IP: ");Serial.print(WiFi.localIP()); Serial.print(" or 192.168.4.1 with connection to ESP AP");Serial.println(" to monitor and control whole network");
 
-  if (info.ap_probereqrecved.mac[0] == device1ID[0] && info.ap_probereqrecved.mac[4] == device1ID[1] && info.ap_probereqrecved.mac[5] == device1ID[2]) 
+  if (info.ap_probereqrecved.mac[0] == device1ID[0] && info.wifi_ap_probereqrecved.mac[4] == device1ID[1] && info.wifi_ap_probereqrecved.mac[5] == device1ID[2]) 
   { // write code to match MAC ID of cell phone to predefined variable and store presence/absense in new variable.
     
     Serial.println("################ Person 1 arrived ###################### ");
     
     myClient.publish("Sensordata/Person1/", "Home");
     Serial.print("Signal Strength of device: ");
-    Serial.println(info.ap_probereqrecved.rssi);
-    myClient.publish("Sensordata/Signal/", (String)info.ap_probereqrecved.rssi);
-    if (info.ap_probereqrecved.rssi > rssiThreshold) // Adjust according to signal strength by trial & error.
+    Serial.println(info.wifi_ap_probereqrecved.rssi);
+    myClient.publish("Sensordata/Signal/", (String)info.wifi_ap_probereqrecved.rssi);
+    if (info.wifi_ap_probereqrecved.rssi > rssiThreshold) // Adjust according to signal strength by trial & error.
      { // write code to match MAC ID of cell phone to predefined variable and store presence/absense in new variable.
        myClient.publish("Sensordata/Person1/in/", room);
      }
