@@ -230,7 +230,7 @@ void startWiFi()
   
   WiFi.softAP(apSSID, apPassword, apChannel, hidden);
   esp_wifi_set_event_mask(WIFI_EVENT_MASK_NONE); // This line is must to activate probe request received event handler.
-  Serial.print("AP started with name: ");Serial.println(apSSID);
+  Serial.print("AP started with SSID: ");Serial.println(apSSID);
   
   ssid = EEPROM.readString(21); password = EEPROM.readString(51);
  
@@ -242,7 +242,7 @@ void startWiFi()
     delay(1000);
     WiFi.begin(ssid.c_str(), password.c_str());
  }
-    Serial.print("Connect at IP: ");Serial.print(WiFi.localIP()); Serial.print(" or 192.168.4.1");Serial.println(" to monitor and control whole network");
+    Serial.print("Connect at IP: ");Serial.print(WiFi.localIP());Serial.print(" or 192.168.4.1");Serial.print(" If you are connected to AP with SSID: ");Serial.println(apSSID); 
 
 }
 
