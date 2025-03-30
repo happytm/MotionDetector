@@ -1,6 +1,6 @@
-// implementation of the bistatic / multistatic interference radar concept: any object moving inside the field between two wifi radios modifies the propagation paths and therefore induces a variation in the RSSI values of each. The purpose of this library is to filter and detect such variations. 
-// warning: the bistatic version requires wifi supplicant and access point to be connected. 
-// the multistatic version, requires the presence of one or more access point in range, but no connection is required. 
+// Implementation of the bistatic / multistatic interference radar concept: any object moving inside the field between two wifi radios modifies the propagation paths and therefore induces a variation in the RSSI values of each. The purpose of this library is to filter and detect such variations. 
+// Warning: the bistatic version requires wifi supplicant and access point to be connected. 
+// The multistatic version, requires the presence of one or more access point in range, but no connection is required. 
 
 
 // WARNING: YOU'RE SUPPOSED TO HAVE ALREADY INITIALIZED WIFI BEFORE USING THIS LIBRARY (i.e. WiFi.begin() and mode (WIFI_STA or WIFI_STA_AP) have already been set, and WiFi is already connected to an external AP or has one client already connected
