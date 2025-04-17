@@ -3,65 +3,59 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <SPIFFS.h>
-#include <Preferences.h>
-
-// ==== WiFi CONFIGURATION ====
-const char* ssid = "HTM";
-const char* password = "";
 
 AsyncWebServer server(80);
-Preferences prefs;
+
+const char* ssid = "HTM";
+const char* password = "";
+int sensitivity = 30;  // Adujust sensitivity of motion sensor.
 
 // ==== MOTION DETECTOR SETTINGS ====
-#define MAX_SAMPLEBUFFERSIZE 256
+#define MAX_sampleSize 256
 #define MAX_AVERAGEBUFFERSIZE 64
 #define MAX_VARIANCE 65535
 #define ABSOLUTE_RSSI_LIMIT -100
 
-int *sampleBuffer = nullptr, *mobileAverageBuffer = nullptr, *varianceBuffer = nullptr;
+int *sampleBuffer = nullptr, *averageBuffer = nullptr, *varianceBuffer = nullptr;
 
-int sampleBufferSize = MAX_SAMPLEBUFFERSIZE;
-int mobileAverageFilterSize = MAX_SAMPLEBUFFERSIZE;
-int mobileAverageBufferSize = MAX_AVERAGEBUFFERSIZE;
-int mobileAverage = 0;
-int mobileAverageTemp = 0;
+int sampleSize = MAX_sampleSize;
+int averageFilterSize = MAX_sampleSize;
+int averageBufferSize = MAX_AVERAGEBUFFERSIZE;
+int average = 0;
+int averageTemp = 0;
 int sampleBufferIndex = 0;
 int sampleBufferValid = 0;
-int mobileAverageBufferIndex = 0;
-int mobileAverageBufferValid = 0;
+int averageBufferIndex = 0;
+int averageBufferValid = 0;
 int variance = 0;
 int variancePrev = 0;
 int varianceSample = 0;
 int varianceAR = 0;
 int varianceIntegral = 0;
 int varianceThreshold = 3;
-int varianceIntegratorLimitMax = MAX_SAMPLEBUFFERSIZE;
+int varianceIntegratorLimitMax = MAX_sampleSize;
 int varianceIntegratorLimit = 3;
-int varianceBufferSize = MAX_SAMPLEBUFFERSIZE;
+int varianceBufferSize = MAX_sampleSize;
 int detectionLevel = 0;
 int varianceBufferIndex = 0;
 int varianceBufferValid = 0;
 int enableCSVout = 0;
 int minimumRSSI = ABSOLUTE_RSSI_LIMIT;
 
-
-
-int motionDetector_config(int sampleBufSize = 256,int mobileAvgSize = 64,int varThreshold = 3,int varIntegratorLimit = 3,bool enableAR = false)
+int motionSensorConfig(int sampleBufSize = 256,int mobileAvgSize = 64,int varThreshold = 3,int varIntegratorLimit = 3,bool enableAR = false)
   {
-  if (sampleBufSize > MAX_SAMPLEBUFFERSIZE) { sampleBufSize = MAX_SAMPLEBUFFERSIZE; }
-  sampleBufferSize = sampleBufSize;
+  if (sampleBufSize > MAX_sampleSize) { sampleBufSize = MAX_sampleSize; }
+  sampleSize = sampleBufSize;
   varianceBufferSize = sampleBufSize;
 
-  if (mobileAvgSize > MAX_SAMPLEBUFFERSIZE) { mobileAvgSize = MAX_SAMPLEBUFFERSIZE; }
-  mobileAverageFilterSize = mobileAvgSize;
+  if (mobileAvgSize > MAX_sampleSize) { mobileAvgSize = MAX_sampleSize; }
+  averageFilterSize = mobileAvgSize;
 
   if (varThreshold > MAX_VARIANCE) { varThreshold = MAX_VARIANCE; }
   varianceThreshold = varThreshold;
 
   if (varIntegratorLimit > varianceIntegratorLimitMax) { varIntegratorLimit = varianceIntegratorLimitMax; }
   varianceIntegratorLimit = varIntegratorLimit;
-
-  
   return 1;
 }
 
@@ -69,39 +63,26 @@ int motionDetector_config(int sampleBufSize = 256,int mobileAvgSize = 64,int var
 void setup() {
   Serial.begin(115200);
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nWiFi connected");
   Serial.println(WiFi.localIP());
+  
+  SPIFFS.begin();
 
-  if (!SPIFFS.begin(true)) {
-    Serial.println("SPIFFS mount failed");
-    return;
-  }
-
-  prefs.begin("motiondet", false);
-  varianceThreshold = prefs.getInt("threshold", 3);
-
-   // Configure motion detector
-  motionDetector_config(128, 32, 5, 5, true); // Example custom settings
+ // Configure motion sensor
+  motionSensorConfig(128, 32, 5, 5, true); // Example custom settings
 
   // Allocate memory based on config
-  sampleBuffer = (int*)malloc(sizeof(int) * sampleBufferSize);
-  mobileAverageBuffer = (int*)malloc(sizeof(int) * mobileAverageBufferSize);
+  sampleBuffer = (int*)malloc(sizeof(int) * sampleSize);
+  averageBuffer = (int*)malloc(sizeof(int) * averageBufferSize);
   varianceBuffer = (int*)malloc(sizeof(int) * varianceBufferSize);
-  for (int i = 0; i < sampleBufferSize; i++) sampleBuffer[i] = 0;
-  for (int i = 0; i < mobileAverageBufferSize; i++) mobileAverageBuffer[i] = 0;
+  for (int i = 0; i < sampleSize; i++) sampleBuffer[i] = 0;
+  for (int i = 0; i < averageBufferSize; i++) averageBuffer[i] = 0;
   for (int i = 0; i < varianceBufferSize; i++) varianceBuffer[i] = 0;
-
-
 
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
   server.on("/data.json", HTTP_GET, [](AsyncWebServerRequest *request){
     int rssi = WiFi.RSSI();
-    int val = motionDetector_process(rssi);
+    int val = motionSensor(rssi);
     String json = "{";
     json += "\"rssi\":" + String(rssi) + ", ";
     json += "\"variance\":" + String(val);
@@ -116,55 +97,42 @@ void setup() {
     request->send(200, "application/json", json);
   });
 
- 
-
-  server.begin();
+   server.begin();
 }
 
 // ==== LOOP ====
 void loop() {
   int rssi = WiFi.RSSI();
-  int result = motionDetector_process(rssi);
-  Serial.print("RSSI: ");
-  Serial.print(rssi);
-  Serial.print(" -> Detection: ");
-  Serial.println(result);
+  int motion = motionSensor(rssi); 
+  //Serial.print("RSSI: "); Serial.print(rssi); Serial.print(" -> Detection: "); Serial.println(motion);
+  
+  if (motion > sensitivity) {Serial.print(" Motion level detected: "); Serial.println(motion);}
   delay(100); // Adjust as needed
 }
 
-// ==== CONFIG & INIT ====
-void motionDetector_config() {
-  sampleBuffer = (int*)malloc(sizeof(int) * sampleBufferSize);
-  mobileAverageBuffer = (int*)malloc(sizeof(int) * mobileAverageBufferSize);
-  varianceBuffer = (int*)malloc(sizeof(int) * sampleBufferSize);
-  for (int i = 0; i < sampleBufferSize; i++) sampleBuffer[i] = 0;
-  for (int i = 0; i < mobileAverageBufferSize; i++) mobileAverageBuffer[i] = 0;
-  for (int i = 0; i < sampleBufferSize; i++) varianceBuffer[i] = 0;
-}
-
-int motionDetector_process(int sample) {
+int motionSensor(int sample) {
   sampleBuffer[sampleBufferIndex++] = sample;
-  if (sampleBufferIndex >= sampleBufferSize) {
+  if (sampleBufferIndex >= sampleSize) {
     sampleBufferIndex = 0;
     sampleBufferValid = 1;
   }
 
   if (sampleBufferValid) {
-    mobileAverageTemp = 0;
-    for (int i = 0; i < mobileAverageFilterSize; i++) {
+    averageTemp = 0;
+    for (int i = 0; i < averageFilterSize; i++) {
       int idx = sampleBufferIndex - i;
-      if (idx < 0) idx += sampleBufferSize;
-      mobileAverageTemp += sampleBuffer[idx];
+      if (idx < 0) idx += sampleSize;
+      averageTemp += sampleBuffer[idx];
     }
-    mobileAverage = mobileAverageTemp / mobileAverageFilterSize;
-    mobileAverageBuffer[mobileAverageBufferIndex++] = mobileAverage;
-    if (mobileAverageBufferIndex >= mobileAverageBufferSize) {
-      mobileAverageBufferIndex = 0;
-      mobileAverageBufferValid = 1;
+    average = averageTemp / averageFilterSize;
+    averageBuffer[averageBufferIndex++] = average;
+    if (averageBufferIndex >= averageBufferSize) {
+      averageBufferIndex = 0;
+      averageBufferValid = 1;
     }
-    varianceSample = (sample - mobileAverage)*(sample - mobileAverage);
+    varianceSample = (sample - average)*(sample - average);
     varianceBuffer[varianceBufferIndex++] = varianceSample;
-    if (varianceBufferIndex >= sampleBufferSize) {
+    if (varianceBufferIndex >= sampleSize) {
       varianceBufferIndex = 0;
       varianceBufferValid = 1;
     }
@@ -172,7 +140,7 @@ int motionDetector_process(int sample) {
     varianceIntegral = 0;
     for (int i = 0; i < varianceIntegratorLimit; i++) {
       int idx = varianceBufferIndex - i;
-      if (idx < 0) idx += sampleBufferSize;
+      if (idx < 0) idx += sampleSize;
       varianceIntegral += varianceBuffer[idx];
     }
 
