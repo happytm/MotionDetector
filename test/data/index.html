@@ -1,1 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ESP32 Motion Detector</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 1rem; background: #f8f8f8; }
+    #chart { width: 100%; height: 300px; margin-bottom: 1rem; }
+    .controls { margin-top: 1rem; }
+    label { display: inline-block; width: 100px; }
+  </style>
+  <link href="https://cdn.jsdelivr.net/npm/uplot@1.6.21/dist/uPlot.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.21/dist/uPlot.iife.min.js"></script>
+</head>
+<body>
+  <h2>ESP32 Motion Detector</h2>
+  <div id="chart"></div>
 
+  <div class="controls">
+    <label for="threshold">Threshold:</label>
+    <input type="number" id="threshold" min="0" max="65535"><br>
+    <label for="ar">AR Filter:</label>
+    <input type="checkbox" id="ar"><br><br>
+    <button onclick="saveConfig()">Save Config</button>
+  </div>
+
+  <script>
+    const chartData = [[], [], []]; // time, RSSI, variance
+    const maxPoints = 120;
+    const opts = {
+      width: window.innerWidth - 40,
+      height: 300,
+      series: [
+        {},
+        { label: "RSSI", stroke: "blue" },
+        { label: "Variance", stroke: "red" }
+      ],
+      axes: [
+        { stroke: "#000" },
+        { stroke: "#000" }
+      ]
+    };
+    const uplot = new uPlot(opts, chartData, document.getElementById("chart"));
+
+    function updateChart(rssi, variance) {
+      const now = Date.now() / 1000;
+      chartData[0].push(now);
+      chartData[1].push(rssi);
+      chartData[2].push(variance);
+      if (chartData[0].length > maxPoints) {
+        chartData[0].shift();
+        chartData[1].shift();
+        chartData[2].shift();
+      }
+      uplot.setData(chartData);
+    }
+
+    async function fetchData() {
+      const res = await fetch("/data.json");
+      const json = await res.json();
+      updateChart(json.rssi, json.variance);
+    }
+
+    async function loadConfig() {
+      const res = await fetch("/config.json");
+      const config = await res.json();
+      document.getElementById("threshold").value = config.threshold;
+      document.getElementById("ar").checked = config.ar === 1;
+    }
+
+    async function saveConfig() {
+      const threshold = document.getElementById("threshold").value;
+      const ar = document.getElementById("ar").checked ? 1 : 0;
+      await fetch("/config.json", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `threshold=${threshold}&ar=${ar}`
+      });
+    }
+
+    setInterval(fetchData, 1000);
+    window.onload = loadConfig;
+  </script>
+</body>
+</html>
