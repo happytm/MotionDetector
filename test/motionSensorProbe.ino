@@ -1,13 +1,11 @@
 #include <WiFi.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
-#include <SPIFFS.h>
 
-AsyncWebServer server(80);
-
-const char* ssid = "HTM";
+const char* ssid = "ESP";
 const char* password = "";
-int sensitivity = 30;  // Adujust sensitivity of motion sensor.
+
+int sensitivity = 30;         // Adujust sensitivity of motion sensor.
+int scantimePerChannel = 30;  // Minimum of 20 recommended for stable scan opperation.
+int rssi;
 int sampleBufSize = 64, AvgSize = 32, varThreshold = 3, varIntegratorLimit = 3; // Tweak according to requirement.
 
 // ==== MOTION DETECTOR SETTINGS ====
@@ -17,7 +15,6 @@ int sampleBufSize = 64, AvgSize = 32, varThreshold = 3, varIntegratorLimit = 3; 
 #define ABSOLUTE_RSSI_LIMIT -100
 
 int *sampleBuffer = nullptr, *averageBuffer = nullptr, *varianceBuffer = nullptr;
-
 int sampleSize = MAX_sampleSize;
 int averageFilterSize = MAX_sampleSize;
 int averageBufferSize = MAX_AVERAGEBUFFERSIZE;
@@ -46,12 +43,10 @@ int minimumRSSI = ABSOLUTE_RSSI_LIMIT;
 // ==== SETUP ====
 void setup() {
   Serial.begin(115200);
-  WiFi.begin(ssid, password); delay(500);
-  Serial.println(WiFi.localIP());
   
-  SPIFFS.begin();
+  WiFi.mode(WIFI_STA); delay(100);
 
- //=============Setup motion sensor===================================================================================================// 
+  //=============Setup motion sensor===================================================================================================// 
   if (sampleBufSize > MAX_sampleSize) { sampleBufSize = MAX_sampleSize; } sampleSize = sampleBufSize; varianceBufferSize = sampleBufSize;
   if (AvgSize > MAX_sampleSize) { AvgSize = MAX_sampleSize; } averageFilterSize = AvgSize;
   if (varThreshold > MAX_VARIANCE) { varThreshold = MAX_VARIANCE; } varianceThreshold = varThreshold;
@@ -63,37 +58,24 @@ void setup() {
   varianceBuffer = (int*)malloc(sizeof(int) * varianceBufferSize); for (int i = 0; i < varianceBufferSize; i++) varianceBuffer[i] = 0;
  //=====================================================================================================================================//
 
-  server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
-
-  server.on("/data.json", HTTP_GET, [](AsyncWebServerRequest *request){
-    int rssi = WiFi.RSSI();
-    int val = motionSensor(rssi);
-    String json = "{";
-    json += "\"rssi\":" + String(rssi) + ", ";
-    json += "\"variance\":" + String(val);
-    json += "}";
-    request->send(200, "application/json", json);
-  });
-
-  server.on("/config.json", HTTP_GET, [](AsyncWebServerRequest *request){
-    String json = "{";
-    json += "\"threshold\":" + String(varianceThreshold) ;
-    json += "}";
-    request->send(200, "application/json", json);
-  });
-
-   server.begin();
-}
+ }
 
 // ==== LOOP ====
 void loop() {
-  int rssi = WiFi.RSSI();
-  int motion = motionSensor(rssi); 
-  //Serial.print("RSSI: "); Serial.print(rssi); Serial.print(" -> Detection: "); Serial.println(motion);
+  
+  startWiFiScan(); if ( WiFi.scanComplete() > 0) { printScannedNetworks(WiFi.scanComplete());} 
+  // *** Very important *** there should be no delay in whole loop after this.
+  
+}
+
+void startWiFiScan() { WiFi.scanNetworks(true, false, true, scantimePerChannel, NULL, ssid); delay(scantimePerChannel * 12);/***very important*** delay of minimum 10 required */ }   // (async, show_hidden, passive, max_ms_per_chan, Target_Channel, ssid)
+
+void printScannedNetworks(uint16_t networksFound) {rssi = WiFi.RSSI(0); Serial.print(networksFound); Serial.println(" probeResponse received. ");  
+int motion = motionSensor(rssi); 
+  Serial.print("RSSI: "); Serial.print(rssi); Serial.print(" -> Detection: "); Serial.println(motion);
   
   if (motion > sensitivity) {Serial.print(" Motion level detected: "); Serial.println(motion);}
-  delay(100); // Adjust as needed
-}
+  delay(10); WiFi.scanDelete();}
 
 int motionSensor(int sample) {sampleBuffer[sampleBufferIndex++] = sample; if (sampleBufferIndex >= sampleSize) {sampleBufferIndex = 0; sampleBufferValid = 1;} if (sampleBufferValid) {averageTemp = 0; for (int i = 0; i < averageFilterSize; i++) {int idx = sampleBufferIndex - i; if (idx < 0) idx += sampleSize; averageTemp += sampleBuffer[idx];} average = averageTemp / averageFilterSize; averageBuffer[averageBufferIndex++] = average; if (averageBufferIndex >= averageBufferSize) {averageBufferIndex = 0; averageBufferValid = 1;} varianceSample = (sample - average)*(sample - average); varianceBuffer[varianceBufferIndex++] = varianceSample; if (varianceBufferIndex >= sampleSize) { varianceBufferIndex = 0; varianceBufferValid = 1;} varianceIntegral = 0; for (int i = 0; i < varianceIntegratorLimit; i++) {int idx = varianceBufferIndex - i; if (idx < 0) idx += sampleSize; varianceIntegral += varianceBuffer[idx];} variance = varianceIntegral;}
 
