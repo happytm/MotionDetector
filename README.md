@@ -2,7 +2,8 @@
 ## Motion sensor fully based on the ESP32.
 
 #### Based on excellent work by paoloinverse at: https://github.com/paoloinverse/bistatic_interference_radar_esp
-- His library was modified to remove serial debug & serial parameter setting via serial to replace with settings via web interface.
+- His library was modified to remove serial debug & serial parameter setting via serial to replace with settings via web interface and one file sketch 
+  without dependency on any library.
 
 #### Similar projects: 
 - https://web.ece.ucsb.edu/~ymostofi/papers/Mobisys21_KoranyMostofi.pdf
